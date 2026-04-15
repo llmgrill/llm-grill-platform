@@ -24,7 +24,9 @@ _VALID_CONVERSATIONS = {"short-qa", "coding", "multi-turn", "long-context"}
 class AggregationService:
     results: ResultsRepositoryPort
 
-    def aggregate(self, extra_runs: list[tuple[str, str, str, list[dict[str, Any]]]] | None = None) -> None:
+    def aggregate(
+        self, extra_runs: list[tuple[str, str, str, list[dict[str, Any]]]] | None = None
+    ) -> None:
         """Read all runs from the repository (+ optional externally-provided rows for dry-run)
         and write leaderboard, per-model detail and history JSON."""
 
@@ -55,7 +57,9 @@ class AggregationService:
         self.results.write_aggregated_leaderboard(leaderboard)
 
         # Per-model detail
-        by_model: dict[str, list[tuple[str, str, list[dict[str, Any]]]]] = defaultdict(list)
+        by_model: dict[str, list[tuple[str, str, list[dict[str, Any]]]]] = defaultdict(
+            list
+        )
         for (date, slug, backend), rows in corpus.items():
             model_id = _model_from_rows(rows, slug)
             by_model[model_id].append((date, backend, rows))
@@ -118,7 +122,11 @@ def _run_metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     ttft = [float(r["ttft_ms"]) for r in ok if r.get("ttft_ms") is not None]
     tpot = [float(r["tpot_ms"]) for r in ok if r.get("tpot_ms") is not None]
     e2e = [float(r["e2e_ms"]) for r in ok if r.get("e2e_ms") is not None]
-    tps = [float(r["tokens_per_second"]) for r in ok if r.get("tokens_per_second") is not None]
+    tps = [
+        float(r["tokens_per_second"])
+        for r in ok
+        if r.get("tokens_per_second") is not None
+    ]
     return {
         "ttft_mean": mean(ttft) if ttft else None,
         "ttft_p95": _p95(ttft) if ttft else None,

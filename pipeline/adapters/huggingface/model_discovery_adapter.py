@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from huggingface_hub import HfApi, ModelInfo
+
 from pipeline.application.domain.types import ModelCandidate
 from pipeline.application.ports.model_discovery_port import DiscoveryFilters
 
@@ -19,11 +21,9 @@ class HuggingFaceModelDiscoveryAdapter:
     adapter into an empty-list producer with a warning.
     """
 
-    def __init__(self, hf_api: Any | None = None, token: str | None = None) -> None:
+    def __init__(self, hf_api: HfApi | None = None, token: str | None = None) -> None:
         if hf_api is None:
             try:  # pragma: no cover - exercised only when lib is installed
-                from huggingface_hub import HfApi
-
                 hf_api = HfApi(token=token)
             except Exception as exc:  # pragma: no cover - exercised only on missing dep
                 logger.warning("huggingface_hub not available: %s", exc)
@@ -53,7 +53,7 @@ class HuggingFaceModelDiscoveryAdapter:
         return out
 
 
-def _safetensors_size_gb(model: Any) -> float:
+def _safetensors_size_gb(model: ModelInfo) -> float:
     siblings = getattr(model, "siblings", None) or []
     total = 0
     for s in siblings:
@@ -64,6 +64,6 @@ def _safetensors_size_gb(model: Any) -> float:
     return total / (1024**3) if total else 0.0
 
 
-def _has_gguf(model: Any) -> bool:
+def _has_gguf(model: ModelInfo) -> bool:
     siblings = getattr(model, "siblings", None) or []
     return any((getattr(s, "rfilename", "") or "").endswith(".gguf") for s in siblings)

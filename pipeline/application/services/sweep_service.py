@@ -19,7 +19,12 @@ class SweepReport:
 
 
 class SweepService:
-    def __init__(self, sweeper: InstanceSweeperPort, name_prefix: str = "grill-", max_age_hours: float = 2.0) -> None:
+    def __init__(
+        self,
+        sweeper: InstanceSweeperPort,
+        name_prefix: str = "grill-",
+        max_age_hours: float = 2.0,
+    ) -> None:
         self._sweeper = sweeper
         self._prefix = name_prefix
         self._max_age = max_age_hours

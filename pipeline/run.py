@@ -69,8 +69,13 @@ class _FixtureDiscovery:
 
 
 class _NoopInfrastructure:
-    def provision(self, model_id: str, backends: list[str], run_id: str) -> list[ProvisionedMachine]:
-        return [ProvisionedMachine(backend=b, host="dry-run", instance_id="dry-run") for b in backends]
+    def provision(
+        self, model_id: str, backends: list[str], run_id: str
+    ) -> list[ProvisionedMachine]:
+        return [
+            ProvisionedMachine(backend=b, host="dry-run", instance_id="dry-run")
+            for b in backends
+        ]
 
     def destroy(self, model_id: str, run_id: str) -> None:
         return None
@@ -81,7 +86,9 @@ class _FixtureRunner:
         self._root = fixtures_root
         self._date = date
 
-    async def run(self, machine: ProvisionedMachine, model_id: str, run_id: str) -> list[dict]:
+    async def run(
+        self, machine: ProvisionedMachine, model_id: str, run_id: str
+    ) -> list[dict]:
         slug = model_id.replace("/", "--")
         path = self._root / self._date / slug / f"{machine.backend}.jsonl"
         if not path.exists():
@@ -111,7 +118,9 @@ def _load_config(path: Path) -> dict[str, Any]:
 
 
 async def _amain(dry_run: bool) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
+    )
     cfg = _load_config(REPO_ROOT / "pipeline" / "config.yaml")
     date = dt.date.today().isoformat()
     run_id = compute_run_id(date, _git_sha())
@@ -169,7 +178,9 @@ async def _amain(dry_run: bool) -> int:
 
 
 class _LiveRunner:  # pragma: no cover - not exercised in dry-run
-    async def run(self, machine: ProvisionedMachine, model_id: str, run_id: str) -> list[dict]:
+    async def run(
+        self, machine: ProvisionedMachine, model_id: str, run_id: str
+    ) -> list[dict]:
         raise NotImplementedError(
             "Live benchmark runner is provisioned by infra (ADR 001a) and not part of this module."
         )

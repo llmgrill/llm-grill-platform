@@ -25,7 +25,9 @@ class FilesystemResultsRepository:
                 return True
         return False
 
-    def write_jsonl(self, date: str, slug: str, backend: str, rows: list[dict[str, Any]]) -> None:
+    def write_jsonl(
+        self, date: str, slug: str, backend: str, rows: list[dict[str, Any]]
+    ) -> None:
         p = self._path(date, slug, backend)
         p.parent.mkdir(parents=True, exist_ok=True)
         with p.open("w", encoding="utf-8") as f:
@@ -101,7 +103,9 @@ class InMemoryResultsRepository:
     def has_result(self, date: str, slug: str, backend: str) -> bool:
         return (date, slug, backend) in self.runs
 
-    def write_jsonl(self, date: str, slug: str, backend: str, rows: list[dict[str, Any]]) -> None:
+    def write_jsonl(
+        self, date: str, slug: str, backend: str, rows: list[dict[str, Any]]
+    ) -> None:
         self.runs[(date, slug, backend)] = list(rows)
 
     def read_jsonl(self, date: str, slug: str, backend: str) -> list[dict[str, Any]]:

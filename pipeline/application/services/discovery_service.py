@@ -50,7 +50,9 @@ class DiscoveryService:
             if not self._match(c, filters):
                 continue
             backends = c.eligible_backends(configured_backends)
-            pending = [b for b in backends if not self._results.has_result(date, c.slug, b)]
+            pending = [
+                b for b in backends if not self._results.has_result(date, c.slug, b)
+            ]
             if pending:
                 plan.append(DiscoveryResult(model=c, pending_backends=pending))
         return plan

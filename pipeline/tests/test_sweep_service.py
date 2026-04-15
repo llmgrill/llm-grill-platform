@@ -4,7 +4,9 @@ from pipeline.application.services.sweep_service import SweepService
 
 
 class _FakeSweeper:
-    def __init__(self, orphans: list[str], destroy_failures: set[str] | None = None) -> None:
+    def __init__(
+        self, orphans: list[str], destroy_failures: set[str] | None = None
+    ) -> None:
         self._orphans = orphans
         self._destroy_failures = destroy_failures or set()
         self.destroyed: list[str] = []

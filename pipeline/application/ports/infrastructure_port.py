@@ -16,7 +16,9 @@ class ProvisionedMachine:
 class InfrastructurePort(Protocol):
     """Provision and destroy the machines used by a single model benchmark."""
 
-    def provision(self, model_id: str, backends: list[str], run_id: str) -> list[ProvisionedMachine]: ...
+    def provision(
+        self, model_id: str, backends: list[str], run_id: str
+    ) -> list[ProvisionedMachine]: ...
 
     def destroy(self, model_id: str, run_id: str) -> None: ...
 
@@ -24,7 +26,9 @@ class InfrastructurePort(Protocol):
 class BenchmarkRunnerPort(Protocol):
     """Run a benchmark on a provisioned machine and return raw JSONL rows."""
 
-    async def run(self, machine: ProvisionedMachine, model_id: str, run_id: str) -> list[dict]: ...
+    async def run(
+        self, machine: ProvisionedMachine, model_id: str, run_id: str
+    ) -> list[dict]: ...
 
 
 class InstanceSweeperPort(Protocol):

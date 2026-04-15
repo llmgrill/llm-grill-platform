@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from pipeline.application.domain.types import (
-    Backend,
     BackendOutcome,
     ModelRunResult,
 )
@@ -66,7 +65,9 @@ class OrchestrationService:
             machines = self._infra.provision(model_id, list(backends), config.run_id)
         except Exception as exc:
             logger.exception("infra_failed for %s", model_id)
-            return ModelRunResult(model_id=model_id, status="infra_failed", error=str(exc))
+            return ModelRunResult(
+                model_id=model_id, status="infra_failed", error=str(exc)
+            )
 
         destroy_failed = False
         try:

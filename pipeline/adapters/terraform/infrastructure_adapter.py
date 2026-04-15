@@ -20,7 +20,9 @@ class TerraformInfrastructureAdapter:
     def __init__(self, tf_dir: Path) -> None:
         self._tf_dir = Path(tf_dir)
 
-    def provision(self, model_id: str, backends: list[str], run_id: str) -> list[ProvisionedMachine]:
+    def provision(
+        self, model_id: str, backends: list[str], run_id: str
+    ) -> list[ProvisionedMachine]:
         workspace = self._workspace(model_id, run_id)
         self._run(["terraform", "workspace", "select", "-or-create", workspace])
         self._run(
@@ -48,6 +50,8 @@ class TerraformInfrastructureAdapter:
         slug = model_id.replace("/", "--")
         return f"{slug}-{run_id}"
 
-    def _run(self, cmd: list[str]) -> None:  # pragma: no cover - thin subprocess wrapper
+    def _run(
+        self, cmd: list[str]
+    ) -> None:  # pragma: no cover - thin subprocess wrapper
         logger.info("terraform: %s", " ".join(cmd))
         subprocess.run(cmd, cwd=self._tf_dir, check=True)

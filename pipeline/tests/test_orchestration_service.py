@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 
 from pipeline.adapters.storage.filesystem_results_repository import (
     InMemoryResultsRepository,
@@ -18,7 +17,9 @@ from pipeline.application.services.orchestration_service import (
 
 
 class _FakeInfra:
-    def __init__(self, fail_provision: bool = False, fail_destroy: bool = False) -> None:
+    def __init__(
+        self, fail_provision: bool = False, fail_destroy: bool = False
+    ) -> None:
         self.provisioned: list[tuple[str, list[str]]] = []
         self.destroyed: list[str] = []
         self._fail_provision = fail_provision
@@ -28,7 +29,10 @@ class _FakeInfra:
         if self._fail_provision:
             raise RuntimeError("terraform apply failed")
         self.provisioned.append((model_id, backends))
-        return [ProvisionedMachine(backend=b, host=f"h-{b}", instance_id=f"i-{b}") for b in backends]
+        return [
+            ProvisionedMachine(backend=b, host=f"h-{b}", instance_id=f"i-{b}")
+            for b in backends
+        ]
 
     def destroy(self, model_id, run_id):
         if self._fail_destroy:
@@ -43,7 +47,15 @@ class _FakeRunner:
     async def run(self, machine, model_id, run_id):
         if machine.backend in self._failing:
             raise RuntimeError(f"backend {machine.backend} failed")
-        return [{"scenario": "nightly", "server": machine.backend, "model": model_id, "success": True, "ttft_ms": 1.0}]
+        return [
+            {
+                "scenario": "nightly",
+                "server": machine.backend,
+                "model": model_id,
+                "success": True,
+                "ttft_ms": 1.0,
+            }
+        ]
 
 
 def _plan() -> list[DiscoveryResult]:
@@ -61,7 +73,9 @@ def test_run_given_all_backends_succeed_when_orchestrated_then_status_success():
     outcomes = asyncio.run(
         service.run(
             _plan(),
-            OrchestrationConfig(per_backend_timeout_s=10, date="2026-04-14", run_id="rid"),
+            OrchestrationConfig(
+                per_backend_timeout_s=10, date="2026-04-14", run_id="rid"
+            ),
         )
     )
 
@@ -76,13 +90,17 @@ def test_run_given_one_backend_fails_when_orchestrated_then_status_partial_and_d
     # Given
     repo = InMemoryResultsRepository()
     infra = _FakeInfra()
-    service = OrchestrationService(infra, _FakeRunner(failing_backends={"llamacpp"}), repo)
+    service = OrchestrationService(
+        infra, _FakeRunner(failing_backends={"llamacpp"}), repo
+    )
 
     # When
     outcomes = asyncio.run(
         service.run(
             _plan(),
-            OrchestrationConfig(per_backend_timeout_s=10, date="2026-04-14", run_id="rid"),
+            OrchestrationConfig(
+                per_backend_timeout_s=10, date="2026-04-14", run_id="rid"
+            ),
         )
     )
 
@@ -105,7 +123,9 @@ def test_run_given_provision_fails_when_orchestrated_then_status_infra_failed_an
     outcomes = asyncio.run(
         service.run(
             _plan(),
-            OrchestrationConfig(per_backend_timeout_s=10, date="2026-04-14", run_id="rid"),
+            OrchestrationConfig(
+                per_backend_timeout_s=10, date="2026-04-14", run_id="rid"
+            ),
         )
     )
 
@@ -125,7 +145,9 @@ def test_run_given_destroy_fails_when_orchestrated_then_status_destroy_failed():
     outcomes = asyncio.run(
         service.run(
             _plan(),
-            OrchestrationConfig(per_backend_timeout_s=10, date="2026-04-14", run_id="rid"),
+            OrchestrationConfig(
+                per_backend_timeout_s=10, date="2026-04-14", run_id="rid"
+            ),
         )
     )
 

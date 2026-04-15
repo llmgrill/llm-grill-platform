@@ -6,7 +6,9 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 Backend = Literal["vllm", "llamacpp"]
-ModelStatus = Literal["success", "partial", "infra_failed", "unknown_error", "destroy_failed"]
+ModelStatus = Literal[
+    "success", "partial", "infra_failed", "unknown_error", "destroy_failed"
+]
 
 
 @dataclass(frozen=True)
