@@ -1,0 +1,39 @@
+name: Nightly Benchmark
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    env:
+      SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pipeline
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+      - name: Run benchmarks
+        run: python -m pipeline.run
+      - name: Aggregate
+        run: python -m pipeline.aggregate
+      - name: Commit results
+        run: |
+          git config user.name "llm-grill-bot"
+          git config user.email "bot@llm-grill.invalid"
+          git add results/
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(results): nightly run $(date -u +%Y-%m-%d)"
+            git push
+          fi

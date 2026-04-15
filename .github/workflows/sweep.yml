@@ -1,0 +1,28 @@
+name: Orphan Sweep
+
+on:
+  workflow_run:
+    workflows: ["Nightly Benchmark"]
+    types: [completed]
+  schedule:
+    - cron: "0 8 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+      SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pipeline
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Sweep orphans
+        run: python -m pipeline.sweep
