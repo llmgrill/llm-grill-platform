@@ -31,11 +31,9 @@ results/
 ├── 2026-03-21/
 │   ├── meta-llama--Llama-3.1-8B-Instruct/
 │   │   ├── vllm.jsonl
-│   │   ├── sglang.jsonl
 │   │   └── llamacpp.jsonl
 │   └── Qwen--Qwen2.5-7B-Instruct/
-│       ├── vllm.jsonl
-│       └── sglang.jsonl          # no GGUF → no llamacpp
+│       └── vllm.jsonl            # no GGUF → no llamacpp
 ```
 
 **Conventions**: date `YYYY-MM-DD`, model `org--name` (slash → `--`), backend `{backend}.jsonl`.
