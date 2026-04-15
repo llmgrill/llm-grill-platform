@@ -1,0 +1,16 @@
+specification {
+  element actor {
+    style { shape person }
+  }
+  element system
+  element container
+  element component
+
+  tag external
+  tag storage
+  tag gpu
+  tag trigger
+  tag adapter
+  tag service
+  tag port
+}

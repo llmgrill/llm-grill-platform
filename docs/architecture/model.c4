@@ -1,0 +1,168 @@
+model {
+
+  // ── External Actors & Systems ────────────────────────────────────────────
+
+  visitor = actor 'Visitor' {
+    description 'Reads the public leaderboard to compare LLM inference backends'
+  }
+
+  github = system 'GitHub' {
+    #external
+    description 'Hosts the repo, runs Actions (cron + CI), serves GitHub Pages'
+
+    actions_runner = container 'GitHub Actions Runner' {
+      #trigger
+      technology 'ubuntu-latest'
+      description 'Executes the nightly workflow: install → run → aggregate → commit'
+    }
+
+    pages = container 'GitHub Pages' {
+      #external
+      technology 'Static hosting'
+      description 'Serves the pre-built SvelteKit site from the main branch'
+    }
+
+    repo = container 'Git Repository' {
+      #storage
+      technology 'Git / GitHub'
+      description 'Single source of truth: code, results/ JSONL, aggregated JSON, site build'
+    }
+  }
+
+  hf_hub = system 'HuggingFace Hub' {
+    #external
+    description 'Model registry: discovery API + model weights download (safetensors / GGUF)'
+  }
+
+  scaleway = system 'Scaleway Cloud' {
+    #external
+    description 'GPU cloud provider — H100-1-80G bare-metal instances on demand'
+  }
+
+  // ── llm-grill-nightly (the system under design) ─────────────────────────
+
+  llmgrill = system 'llm-grill-nightly' {
+    description 'Nightly automated benchmark: discovers trending LLMs, runs vLLM + llama.cpp on H100s, publishes a public leaderboard'
+
+    // ── Pipeline Python process ──────────────────────────────────────────
+    pipeline = container 'Pipeline' {
+      technology 'Python 3.11 · asyncio · hexagonal arch'
+      description 'Composition root (run.py): discovery → orchestration → aggregation. Runs inside the GH Actions runner.'
+
+      // Application layer — services
+      discovery_svc = component 'DiscoveryService' {
+        #service
+        description 'Queries HF Hub, applies filters (size, patterns, GGUF), deduplicates against existing results/'
+      }
+      orchestration_svc = component 'OrchestrationService' {
+        #service
+        description 'For each model: provision infra, run backends in parallel (asyncio.gather), destroy infra (finally). Writes per-backend JSONL.'
+      }
+      aggregation_svc = component 'AggregationService' {
+        #service
+        description 'Merges all JSONL → leaderboard.json + history.json in results/aggregated/'
+      }
+
+      // Application layer — ports (interfaces)
+      model_discovery_port = component 'ModelDiscoveryPort' {
+        #port
+        description 'Interface: discover(filters) → list[ModelCandidate]'
+      }
+      infra_port = component 'InfrastructurePort' {
+        #port
+        description 'Interface: provision(model_id, backends, run_id) + destroy()'
+      }
+      runner_port = component 'BenchmarkRunnerPort' {
+        #port
+        description 'Interface: run(machine, model_id, run_id) → list[dict] — ⚠ _LiveRunner not yet implemented'
+      }
+      results_port = component 'ResultsRepositoryPort' {
+        #port
+        description 'Interface: has_result / write_jsonl / write_summary'
+      }
+
+      // Adapters
+      hf_adapter = component 'HuggingFaceModelDiscoveryAdapter' {
+        #adapter
+        description 'Calls HF Hub API (huggingface_hub SDK). Detects GGUF availability.'
+      }
+      tf_adapter = component 'TerraformInfrastructureAdapter' {
+        #adapter
+        description 'Shells out terraform apply/destroy. Workspace = {slug}-{run_id}. Passes -var=model_id, -var=backends, -var=run_id.'
+      }
+      fs_repo = component 'FilesystemResultsRepository' {
+        #adapter
+        #storage
+        description 'Reads/writes results/{date}/{slug}/{backend}.jsonl and results/summary.json'
+      }
+      scw_sweeper = component 'ScalewayInstanceSweeperAdapter' {
+        #adapter
+        description 'Called by sweep.yml — destroys orphan H100 instances via Scaleway API'
+      }
+
+      // Internal flows
+      discovery_svc -> model_discovery_port 'implements via'
+      discovery_svc -> results_port 'checks dedup via'
+      orchestration_svc -> infra_port 'provision/destroy via'
+      orchestration_svc -> runner_port 'run benchmarks via'
+      orchestration_svc -> results_port 'writes JSONL via'
+      aggregation_svc -> results_port 'reads + writes aggregated via'
+      hf_adapter -> model_discovery_port 'implements'
+      tf_adapter -> infra_port 'implements'
+      fs_repo -> results_port 'implements'
+    }
+
+    // ── Terraform + Scaleway infra ───────────────────────────────────────
+    terraform = container 'Terraform (infra/)' {
+      technology 'Terraform · Scaleway provider'
+      description 'Declares H100 instances via for_each on backends. Per-model workspace isolation. Cloud-init bootstraps CUDA + backend + model download.'
+    }
+
+    // ── GPU instances (ephemeral, 1 per backend per model) ───────────────
+    h100_vllm = container 'H100 — vLLM' {
+      #gpu
+      technology 'Scaleway H100-1-80G · vLLM'
+      description 'cloud-init: pip install vllm → vllm serve {model_id} --tensor-parallel-size 1. llm-grill runs benchmarks locally, writes JSONL.'
+    }
+    h100_llamacpp = container 'H100 — llama.cpp' {
+      #gpu
+      technology 'Scaleway H100-1-80G · llama-cpp-python'
+      description 'cloud-init: pip install llama-cpp-python + download .gguf → start server. Only created when model has GGUF. llm-grill writes JSONL.'
+    }
+
+    // ── Results store (filesystem on runner + committed to git) ──────────
+    results_store = container 'results/' {
+      #storage
+      technology 'JSONL + JSON files · Git-committed'
+      description 'results/{date}/{slug}/{backend}.jsonl  +  results/aggregated/leaderboard.json + history.json. Committed to main after each run.'
+    }
+
+    // ── SvelteKit site ───────────────────────────────────────────────────
+    site = container 'Site (site/)' {
+      technology 'SvelteKit · TypeScript'
+      description 'Static leaderboard built from results/aggregated/. Deployed to GitHub Pages via main branch push.'
+    }
+
+    // ── Inter-container flows ────────────────────────────────────────────
+    pipeline -> terraform 'shells out terraform apply/destroy (TerraformInfrastructureAdapter)'
+    terraform -> scaleway 'creates/destroys H100-1-80G instances via Scaleway provider'
+    terraform -> h100_vllm 'provisions (cloud-init: CUDA + vLLM + model download)'
+    terraform -> h100_llamacpp 'provisions if GGUF exists (cloud-init: CUDA + llama.cpp + .gguf download)'
+    h100_vllm -> hf_hub 'downloads model weights (safetensors) at boot'
+    h100_llamacpp -> hf_hub 'downloads .gguf weights at boot'
+    pipeline -> h100_vllm '⚠ run benchmarks — transport TBD (SSH / direct API call)'
+    pipeline -> h100_llamacpp '⚠ run benchmarks — transport TBD (SSH / direct API call)'
+    h100_vllm -> results_store 'writes JSONL (via runner_port — path TBD)'
+    h100_llamacpp -> results_store 'writes JSONL (via runner_port — path TBD)'
+    pipeline -> hf_hub 'discovers trending models (HF Hub API)'
+    pipeline -> results_store 'reads existing results (dedup) + writes summary + aggregated'
+    site -> results_store 'reads leaderboard.json + history.json at build time'
+  }
+
+  // ── Cross-system flows ───────────────────────────────────────────────────
+  github.actions_runner -> llmgrill.pipeline 'runs pipeline.run + pipeline.aggregate'
+  github.actions_runner -> github.repo 'git commit+push results/ after run'
+  github.repo -> github.pages 'triggers GitHub Pages rebuild on push to main'
+  visitor -> github.pages 'visits leaderboard'
+  github.pages -> llmgrill.site 'serves pre-built static site'
+}

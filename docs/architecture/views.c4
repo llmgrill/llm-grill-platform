@@ -1,0 +1,100 @@
+views {
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Level 1 — System Context
+  // Shows how llm-grill-nightly fits in the wider landscape.
+  // ─────────────────────────────────────────────────────────────────────────
+  view system_context of llmgrill {
+    title 'System Context — llm-grill-nightly'
+
+    include *
+    include visitor
+    include github
+    include hf_hub
+    include scaleway
+
+    autoLayout TopBottom
+
+    style element.tag = #external { color slate }
+    style visitor { color green }
+    style llmgrill { color amber }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Level 2 — Containers
+  // Deployable units: GH Actions runner, Pipeline, Terraform, H100s, Site, Pages
+  // ─────────────────────────────────────────────────────────────────────────
+  view containers of llmgrill {
+    title 'Containers — llm-grill-nightly'
+
+    include *
+    include github.actions_runner
+    include github.repo
+    include github.pages
+    include hf_hub
+    include scaleway
+
+    autoLayout TopBottom
+
+    style element.tag = #external { color slate }
+    style element.tag = #storage { shape storage; color green }
+    style element.tag = #gpu { color red }
+    style element.tag = #trigger { color sky }
+    style visitor { color green }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Level 3 — Components (Pipeline internals)
+  // Hexagonal architecture: services, ports, adapters
+  // ─────────────────────────────────────────────────────────────────────────
+  view components of llmgrill.pipeline {
+    title 'Components — Pipeline (hexagonal architecture)'
+
+    include *
+    include llmgrill.results_store
+    include hf_hub
+    include llmgrill.terraform
+    include llmgrill.h100_vllm
+    include llmgrill.h100_llamacpp
+
+    autoLayout TopBottom
+
+    style element.tag = #service { color amber }
+    style element.tag = #port { color sky }
+    style element.tag = #adapter { color indigo }
+    style element.tag = #storage { shape storage; color green }
+    style element.tag = #gpu { color red }
+    style element.tag = #external { color slate }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Focused view — Nightly Run Flow (sequence-like, containers only)
+  // Highlights the sequential-per-model / parallel-per-backend execution model
+  // ─────────────────────────────────────────────────────────────────────────
+  view nightly_flow {
+    title 'Nightly Run — Execution Flow'
+
+    include github.actions_runner
+    include llmgrill.pipeline
+    include llmgrill.terraform
+    include llmgrill.h100_vllm
+    include llmgrill.h100_llamacpp
+    include llmgrill.results_store
+    include llmgrill.site
+    include github.repo
+    include github.pages
+    include hf_hub
+    include scaleway
+
+    autoLayout LeftRight
+
+    style element.tag = #storage { shape storage; color green }
+    style element.tag = #gpu { color red }
+    style element.tag = #trigger { color sky }
+    style element.tag = #external { color slate }
+
+    style llmgrill.h100_vllm { color red }
+    style llmgrill.h100_llamacpp { color red }
+    style llmgrill.pipeline { color amber }
+  }
+}
