@@ -11,7 +11,7 @@
 The `llm-grill` CLI benchmarks LLM inference servers manually. We want to automate the full loop:
 
 1. **Discover** new models nightly from HuggingFace Hub.
-2. **Benchmark** them on 3 backends (vLLM, SGLang, llama.cpp) on H100 GPUs.
+2. **Benchmark** them on 2 backends (vLLM for raw GPU perf, llama.cpp for quantized GGUF) on H100 GPUs.
 3. **Publish** results on a comparison website (leaderboard, per-model detail, history).
 
 ## Decision
@@ -20,7 +20,7 @@ Create a dedicated repo (`llm-grill-nightly`) split into independent components,
 
 | ADR | Component | Scope |
 |-----|-----------|-------|
-| [001a](001a-infra-terraform-scaleway.md) | **Infra** | Terraform + Scaleway, 3 parallel H100s |
+| [001a](001a-infra-terraform-scaleway.md) | **Infra** | Terraform + Scaleway, up to 2 parallel H100s |
 | [001b](001b-pipeline-discovery-orchestration.md) | **Pipeline** | HF discovery, dedup, orchestration, GitHub Actions |
 | [001c](001c-data-storage-jsonl.md) | **Storage** | JSONL format, `results/` layout, dedup |
 | [001d](001d-frontend-sveltekit.md) | **Frontend** | Static SvelteKit site |
