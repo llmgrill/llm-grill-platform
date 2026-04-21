@@ -12,6 +12,7 @@ from src.orchestrator import polling_loop
 from src.routers.nodes import router as nodes_router
 from src.routers.results import router as results_router
 from src.routers.runs import router as runs_router
+from src.watcher import watching_loop
 
 logging.basicConfig(level=logging.INFO)
 
@@ -20,9 +21,11 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    task = asyncio.create_task(polling_loop(AsyncSessionLocal))
+    task_poll = asyncio.create_task(polling_loop(AsyncSessionLocal))
+    task_watch = asyncio.create_task(watching_loop(AsyncSessionLocal))
     yield
-    task.cancel()
+    task_poll.cancel()
+    task_watch.cancel()
     await engine.dispose()
 
 

@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 
-from src.models import Engine, GpuType, Result, Run, RunStatus
+from src.models import GpuType, Result, Run, RunStatus
 from src.orchestrator import handle_queued_run
 from src.routing import select_gpu
 
@@ -37,6 +37,7 @@ def _make_result(run_id: uuid.UUID) -> Result:
         requests_per_second=2.5,
         total_duration_s=4.0,
     )
+
 
 SMALL_MODEL_PAYLOAD = {
     "model": "meta-llama/Llama-3-8B",
@@ -262,7 +263,9 @@ class TestRunCompletion:
             "src.routers.runs.upload_results", return_value="runs/x/results.jsonl"
         )
         run_id = await self._create_running_run(client, session_factory)
-        mocker.patch("src.routers.runs.aggregate", return_value=_make_result(uuid.UUID(run_id)))
+        mocker.patch(
+            "src.routers.runs.aggregate", return_value=_make_result(uuid.UUID(run_id))
+        )
 
         # When
         resp = await client.post(
@@ -318,7 +321,9 @@ class TestRunCompletion:
         )
         resp = await client.post("/runs", json=SMALL_MODEL_PAYLOAD)
         run_id = resp.json()["id"]
-        mocker.patch("src.routers.runs.aggregate", return_value=_make_result(uuid.UUID(run_id)))
+        mocker.patch(
+            "src.routers.runs.aggregate", return_value=_make_result(uuid.UUID(run_id))
+        )
 
         # When
         resp = await client.post(
