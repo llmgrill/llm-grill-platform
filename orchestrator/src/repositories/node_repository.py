@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import select
 
 import src.db as _db
-from src.models import GpuType, Node, NodeStatus
+from src.models import GpuType, Node, NodeStatus, Run, RunStatus
 
 
 class NodeRepository:
@@ -67,6 +67,18 @@ class NodeRepository:
             node.ip_address = public_ip
             node.status = NodeStatus.busy
             await session.commit()
+
+    @staticmethod
+    async def get_leaked() -> list[uuid.UUID]:
+        """Return run IDs of nodes still busy whose run is done or failed."""
+        async with _db.AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Node.current_run_id)
+                .join(Run, Run.id == Node.current_run_id)
+                .where(Node.status == NodeStatus.busy)
+                .where(Run.status.in_([RunStatus.done, RunStatus.failed]))
+            )
+            return [row[0] for row in result.all() if row[0] is not None]
 
     @staticmethod
     async def set_down_by_run(run_id: uuid.UUID) -> None:

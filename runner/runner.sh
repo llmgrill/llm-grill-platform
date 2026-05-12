@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Required env vars: RUN_ID, ORCHESTRATOR_URL, HF_TOKEN
+# Required env vars: RUN_ID, ORCHESTRATOR_URL, HF_TOKEN, ORCHESTRATOR_API_KEY
 ORCHESTRATOR_URL="${ORCHESTRATOR_URL%/}"
+API_KEY_HEADER="X-API-Key: ${ORCHESTRATOR_API_KEY:-}"
 MODEL_DIR="/opt/models"
 ENGINE_PORT=8080
 ENGINE_PID=""
@@ -10,6 +11,7 @@ ENGINE_PID=""
 fail() {
   curl -sf -X POST "${ORCHESTRATOR_URL}/runs/${RUN_ID}/fail" \
     -H "Content-Type: application/json" \
+    -H "$API_KEY_HEADER" \
     -d "$(jq -n --arg msg "$1" '{error_message: $msg}')" || true
   [[ -n "$ENGINE_PID" ]] && kill "$ENGINE_PID" 2>/dev/null || true
   exit 1
@@ -18,7 +20,7 @@ fail() {
 trap 'fail "unexpected error on line $LINENO"' ERR
 
 # --- 1. Fetch run params ---
-RUN_JSON=$(curl -sf "${ORCHESTRATOR_URL}/runs/${RUN_ID}")
+RUN_JSON=$(curl -sf "${ORCHESTRATOR_URL}/runs/${RUN_ID}" -H "$API_KEY_HEADER")
 MODEL=$(echo "$RUN_JSON" | jq -r '.model')
 ENGINE=$(echo "$RUN_JSON" | jq -r '.engine')
 SCENARIO=$(echo "$RUN_JSON" | jq -r '.scenario_path')
@@ -67,6 +69,7 @@ RESULTS=$(llm-grill run --scenario "$SCENARIO" --output jsonl)
 # --- 7. Report success ---
 curl -sf -X POST "${ORCHESTRATOR_URL}/runs/${RUN_ID}/complete" \
   -H "Content-Type: application/json" \
+  -H "$API_KEY_HEADER" \
   -d "$(jq -n --arg r "$RESULTS" '{results_jsonl: $r}')"
 
 # --- 8. Cleanup ---

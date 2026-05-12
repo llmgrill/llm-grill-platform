@@ -14,7 +14,10 @@ def _make_entries(*models):
 
 @pytest.fixture(autouse=True)
 def skip_hf_check(monkeypatch):
-    monkeypatch.setattr(bench_service, "_check_hf_exists", lambda model_id: None)
+    async def _noop(model_id: str) -> None:
+        pass
+
+    monkeypatch.setattr(bench_service, "_check_hf_exists", _noop)
 
 
 @pytest.fixture(autouse=True)
@@ -245,16 +248,13 @@ class TestSubmitHFExistence:
             "_load_models",
             lambda: _make_entries("missing/model"),
         )
-        monkeypatch.setattr(
-            bench_service,
-            "_check_hf_exists",
-            lambda model_id: (_ for _ in ()).throw(
-                HTTPException(
-                    status_code=422,
-                    detail=f"Model not found on HuggingFace: {model_id}",
-                )
-            ),
-        )
+        async def _raise(model_id: str) -> None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Model not found on HuggingFace: {model_id}",
+            )
+
+        monkeypatch.setattr(bench_service, "_check_hf_exists", _raise)
 
         with pytest.raises(HTTPException) as exc:
             await bench_service.submit()

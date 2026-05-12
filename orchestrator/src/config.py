@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,9 +20,17 @@ class Settings(BaseSettings):
     scw_region: str = "fr-par"
     scw_access_key: str = ""
     scw_secret_key: str = ""
+    api_key: str
 
     # Model list (deployed alongside the orchestrator)
     models_file: Path = Path(__file__).resolve().parents[1] / "models.yaml"
 
+    @field_validator("api_key")
+    @classmethod
+    def api_key_must_be_set(cls, v: str) -> str:
+        if not v:
+            raise ValueError("API_KEY must be set")
+        return v
 
-settings = Settings()
+
+settings = Settings() # ty: ignore[missing-argument]

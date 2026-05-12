@@ -1,0 +1,64 @@
+name: deploy
+
+on:
+  workflow_run:
+    workflows: ["ci"]
+    branches: [main]
+    types: [completed]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy repo to VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 15m
+          source: "./*"
+          target: "/home/${{ secrets.DEPLOY_USER }}/llm-grill-nightly/"
+
+      - name: Write .env on VM
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            cat <<'EOF' > /home/${{ secrets.DEPLOY_USER }}/llm-grill-nightly/.env
+            POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            ORCHESTRATOR_URL=${{ secrets.ORCHESTRATOR_URL }}
+            API_KEY=${{ secrets.API_KEY }}
+            HF_TOKEN=${{ secrets.HF_TOKEN }}
+            SCW_ACCESS_KEY=${{ secrets.SCW_ACCESS_KEY }}
+            SCW_SECRET_KEY=${{ secrets.SCW_SECRET_KEY }}
+            SCW_BUCKET=${{ secrets.SCW_BUCKET }}
+            SCW_REGION=${{ secrets.SCW_REGION }}
+            GPU_ZONE=${{ secrets.GPU_ZONE }}
+            EOF
+
+      - name: Deploy with Docker Compose
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 15m
+          script: |
+            set -e
+            cd /home/${{ secrets.DEPLOY_USER }}/llm-grill-nightly
+
+            docker compose -f docker-compose.yml -f docker-compose.with-migrations.yaml up --build -d
+
+            docker image prune -f
+
+            docker ps

@@ -1,12 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import exists, select
+from sqlalchemy import exists, func, select
 
 import src.db as _db
-from src.models import GpuType, Run, RunStatus
-
-_ACTIVE_STATUSES = {RunStatus.queued, RunStatus.provisioning, RunStatus.running}
+from src.models import ACTIVE_RUN_STATUSES, GpuType, Result, Run, RunStatus
 
 
 class RunRepository:
@@ -25,29 +23,92 @@ class RunRepository:
             return list(result.scalars().all())
 
     @staticmethod
-    async def get_queued() -> list[tuple[uuid.UUID, GpuType]]:
+    async def claim_queued() -> list[tuple[uuid.UUID, GpuType]]:
+        """Atomically fetch queued runs and transition them to provisioning.
+
+        Uses SELECT FOR UPDATE SKIP LOCKED so concurrent pollers never pick
+        up the same run twice.
+        """
         async with _db.AsyncSessionLocal() as session:
             result = await session.execute(
-                select(Run).where(Run.status == RunStatus.queued)
+                select(Run)
+                .where(Run.status == RunStatus.queued)
+                .with_for_update(skip_locked=True)
             )
             runs = result.scalars().all()
+            for run in runs:
+                run.status = RunStatus.provisioning
+            await session.commit()
             return [(r.id, r.gpu_type_required) for r in runs]
 
     @staticmethod
-    async def exists_active(model_id: str) -> bool:
+    async def has_completed_run(model: str, engine: str) -> bool:
         async with _db.AsyncSessionLocal() as session:
             stmt = select(
-                exists()
-                .where(Run.model == model_id)
-                .where(Run.status.in_(_ACTIVE_STATUSES))
+                exists().where(
+                    Run.model == model,
+                    Run.engine == engine,
+                    Run.status == RunStatus.done,
+                )
             )
-            result = await session.execute(stmt)
-            return bool(result.scalar())
+            return bool((await session.execute(stmt)).scalar())
+
+    @staticmethod
+    async def has_active_run(model: str, engine: str) -> bool:
+        async with _db.AsyncSessionLocal() as session:
+            stmt = select(
+                exists().where(
+                    Run.model == model,
+                    Run.engine == engine,
+                    Run.status.in_(ACTIVE_RUN_STATUSES),
+                )
+            )
+            return bool((await session.execute(stmt)).scalar())
+
+    @staticmethod
+    async def count_by_status() -> dict[str, int]:
+        async with _db.AsyncSessionLocal() as session:
+            rows = (
+                await session.execute(
+                    select(Run.status, func.count()).group_by(Run.status)
+                )
+            ).all()
+        counts: dict[str, int] = {s.value: 0 for s in RunStatus}
+        for row_status, count in rows:
+            counts[row_status.value] = count
+        return counts
 
     @staticmethod
     async def create(run: Run) -> Run:
         async with _db.AsyncSessionLocal() as session:
             session.add(run)
+            await session.commit()
+            await session.refresh(run)
+            return run
+
+    @staticmethod
+    async def complete_run(run_id: uuid.UUID, results_url: str, result: Result) -> Run:
+        async with _db.AsyncSessionLocal() as session:
+            run = await session.get(Run, run_id)
+            if run is None:
+                raise ValueError(f"Run {run_id} not found")
+            run.status = RunStatus.done
+            run.ended_at = datetime.now(timezone.utc)
+            run.results_url = results_url
+            session.add(result)
+            await session.commit()
+            await session.refresh(run)
+            return run
+
+    @staticmethod
+    async def fail_run(run_id: uuid.UUID, error_message: str) -> Run:
+        async with _db.AsyncSessionLocal() as session:
+            run = await session.get(Run, run_id)
+            if run is None:
+                raise ValueError(f"Run {run_id} not found")
+            run.status = RunStatus.failed
+            run.error_message = error_message
+            run.ended_at = datetime.now(timezone.utc)
             await session.commit()
             await session.refresh(run)
             return run

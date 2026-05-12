@@ -1,0 +1,3 @@
+api.llm-grill.gireg.fr {
+    reverse_proxy orchestrator:8000
+}

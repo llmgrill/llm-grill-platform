@@ -35,6 +35,11 @@ class GpuType(str, enum.Enum):
     H100 = "H100"
 
 
+ACTIVE_RUN_STATUSES: frozenset[RunStatus] = frozenset(
+    {RunStatus.queued, RunStatus.provisioning, RunStatus.running}
+)
+
+
 class Node(Base):
     __tablename__ = "nodes"
 

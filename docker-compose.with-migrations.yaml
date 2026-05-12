@@ -1,19 +1,19 @@
 services:
   migration:
-    container_name: migration
+    container_name: llmgrill-migration
     build:
-      context: ./orchestrator
-      dockerfile: Dockerfile.migrations
+      context: .
+      dockerfile: orchestrator/Dockerfile.migrations
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${DB_NAME}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/llmgrill
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
-    entrypoint: ["sh", "-c", "sleep 4 && uv run alembic upgrade head"]
+    entrypoint: ["uv", "run", "alembic", "upgrade", "head"]
 
   orchestrator:
     depends_on:
       migration:
         condition: service_completed_successfully
-      db:
+      postgres:
         condition: service_healthy

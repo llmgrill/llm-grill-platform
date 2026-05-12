@@ -7,6 +7,7 @@ write_files:
       RUN_ID=${run_id}
       ORCHESTRATOR_URL=${orchestrator_url}
       HF_TOKEN=${hf_token}
+      ORCHESTRATOR_API_KEY=${orchestrator_api_key}
 
   - path: /etc/systemd/system/llmgrill-runner.service
     content: |
@@ -30,6 +31,7 @@ runcmd:
   - nvidia-smi -pm 1
 
   # Install jq
+  - apt-get update -y
   - apt-get install -y jq
 
   # Fetch runner script from orchestrator

@@ -38,6 +38,13 @@ variable "gpu_zone" {
   }
 }
 
+variable "orchestrator_api_key" {
+  description = "API key for authenticating against the orchestrator"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "ssh_public_keys" {
   description = "SSH public keys for emergency access"
   type        = list(string)

@@ -6,8 +6,6 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
-from src.db import engine
-from src.models import Base
 from src.orchestrator import polling_loop
 from src.routers.bench import router as bench_router
 from src.routers.leaderboard import router as leaderboard_router
@@ -20,12 +18,9 @@ logging.basicConfig(level=logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
     task_poll = asyncio.create_task(polling_loop())
     yield
     task_poll.cancel()
-    await engine.dispose()
 
 
 app = FastAPI(title="llm-grill orchestrator", lifespan=lifespan)

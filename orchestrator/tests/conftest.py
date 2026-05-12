@@ -1,5 +1,9 @@
 """Shared fixtures for the orchestrator test suite."""
 
+import os
+
+os.environ.setdefault("API_KEY", "test-key")
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -29,7 +33,9 @@ async def session_factory():
 async def client(session_factory):
     """AsyncClient wired to an in-memory DB."""
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"X-API-Key": "test-key"},
     ) as c:
         yield c
 

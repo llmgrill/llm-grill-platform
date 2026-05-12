@@ -57,6 +57,8 @@ async def provision_node(run_id: uuid.UUID, gpu_type: GpuType) -> tuple[str, str
     secret_vars = [
         "-var",
         f"hf_token={settings.hf_token}",
+        "-var",
+        f"orchestrator_api_key={settings.api_key}",
     ]
 
     await _terraform(workspace, "init", "-input=false")
@@ -75,7 +77,12 @@ async def destroy_node(run_id: uuid.UUID) -> None:
     if not workspace.exists():
         logger.warning("workspace %s not found, skipping destroy", workspace)
         return
-    secret_vars = ["-var", f"hf_token={settings.hf_token}"]
+    secret_vars = [
+        "-var",
+        f"hf_token={settings.hf_token}",
+        "-var",
+        f"orchestrator_api_key={settings.api_key}",
+    ]
     await _terraform(
         workspace, "destroy", "-auto-approve", "-input=false", *secret_vars
     )

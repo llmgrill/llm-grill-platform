@@ -1,11 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from src.auth import require_api_key
 from src.services import bench_service
 
 router = APIRouter(prefix="/bench", tags=["bench"])
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(require_api_key)])
 async def submit_bench(force: bool = False, model: str | None = None):
     """
     Enqueue benchmark runs for all models in models.yaml.
