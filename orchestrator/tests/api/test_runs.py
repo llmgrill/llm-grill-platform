@@ -9,7 +9,7 @@ import uuid
 
 import pytest
 
-from src.models import GpuType, Result, Run, RunStatus
+from src.models import GpuType, Node, NodeStatus, Result, Run, RunStatus
 from src.orchestrator import handle_queued_run
 from src.services.run_service import RunService
 
@@ -207,8 +207,12 @@ class TestOrchestratorProvisioning:
         # Then
         async with session_factory() as session:
             run = await session.get(Run, queued_run)
+            node = await session.get(Node, "scw-instance-abc")
         assert run.status == RunStatus.running
         assert run.started_at is not None
+        assert node is not None
+        assert node.status == NodeStatus.busy
+        assert node.ip_address == "1.2.3.4"
 
     async def test_should_mark_run_failed_when_provision_raises(
         self, session_factory, queued_run, mocker

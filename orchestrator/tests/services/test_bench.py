@@ -1,6 +1,7 @@
-"""Tests for bench_service.submit() — replaces the removed watcher."""
+"""Tests for bench_service.submit()."""
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 
 from src.models import Engine, GpuType, Run, RunStatus
@@ -187,3 +188,74 @@ class TestSubmit:
         assert len(runs) == 1
         assert runs[0].gguf_file == "Llama-3.1-8B-Instruct-Q4_K_M.gguf"
         assert runs[0].engine == Engine.llamacpp
+
+
+class TestSubmitModelFilter:
+    async def test_should_submit_only_matching_models(
+        self, session_factory, monkeypatch
+    ):
+        """
+        Given: Two models and a filter matching only one
+        When: submit(model_filter=...) is called
+        Then: Only the matching model is enqueued
+        """
+        monkeypatch.setattr(
+            bench_service,
+            "_load_models",
+            lambda: _make_entries(
+                "meta-llama/Llama-3.1-8B-Instruct", "Qwen/Qwen2.5-7B-Instruct"
+            ),
+        )
+
+        result = await bench_service.submit(model_filter="llama")
+
+        assert len(result["submitted"]) == 1
+        async with session_factory() as session:
+            runs = (await session.execute(select(Run))).scalars().all()
+        assert runs[0].model == "meta-llama/Llama-3.1-8B-Instruct"
+
+    async def test_should_raise_404_when_filter_matches_nothing(self, monkeypatch):
+        """
+        Given: A filter that matches no model
+        When: submit(model_filter=...) is called
+        Then: HTTP 404 is raised
+        """
+        monkeypatch.setattr(
+            bench_service,
+            "_load_models",
+            lambda: _make_entries("meta-llama/Llama-3.1-8B-Instruct"),
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await bench_service.submit(model_filter="nonexistent")
+        assert exc.value.status_code == 404
+
+
+class TestSubmitHFExistence:
+    async def test_should_raise_422_when_hf_repo_not_found(
+        self, session_factory, monkeypatch
+    ):
+        """
+        Given: A model whose HF repo does not exist
+        When: submit() is called
+        Then: HTTP 422 is raised
+        """
+        monkeypatch.setattr(
+            bench_service,
+            "_load_models",
+            lambda: _make_entries("missing/model"),
+        )
+        monkeypatch.setattr(
+            bench_service,
+            "_check_hf_exists",
+            lambda model_id: (_ for _ in ()).throw(
+                HTTPException(
+                    status_code=422,
+                    detail=f"Model not found on HuggingFace: {model_id}",
+                )
+            ),
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await bench_service.submit()
+        assert exc.value.status_code == 422

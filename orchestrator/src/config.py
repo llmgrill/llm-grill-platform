@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     scw_secret_key: str = ""
 
     # Model list (deployed alongside the orchestrator)
-    models_file: Path = Path(__file__).parent.parent / "models.yaml"
+    models_file: Path = Path(__file__).resolve().parents[1] / "models.yaml"
 
 
 settings = Settings()

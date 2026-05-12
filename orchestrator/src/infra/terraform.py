@@ -75,6 +75,9 @@ async def destroy_node(run_id: uuid.UUID) -> None:
     if not workspace.exists():
         logger.warning("workspace %s not found, skipping destroy", workspace)
         return
-    await _terraform(workspace, "destroy", "-auto-approve", "-input=false")
+    secret_vars = ["-var", f"hf_token={settings.hf_token}"]
+    await _terraform(
+        workspace, "destroy", "-auto-approve", "-input=false", *secret_vars
+    )
     shutil.rmtree(workspace)
     logger.info("destroyed node for run %s", run_id)

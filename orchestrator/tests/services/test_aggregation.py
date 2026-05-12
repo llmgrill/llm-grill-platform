@@ -107,3 +107,25 @@ class TestAggregate:
         called_results, called_duration = mock_agg.call_args[0]
         assert called_results == [fake_request, fake_request]
         assert called_duration == pytest.approx(1.0)
+
+    @pytest.mark.parametrize("jsonl", ["", "   \n\t  \n"])
+    def test_should_handle_empty_or_whitespace_only_input(self, mocker, jsonl):
+        """
+        Given: Empty or whitespace-only JSONL
+        When: aggregate is called
+        Then: estimate_total_duration is skipped, _aggregate is called with an empty list
+              and total_duration_s=0.0
+        """
+        # Given
+        run = _make_run()
+        metrics = _make_metrics(total_duration_s=0.0)
+        mock_agg = mocker.patch("src.aggregation._aggregate", return_value=metrics)
+        mock_duration = mocker.patch("src.aggregation.estimate_total_duration")
+
+        # When
+        result = aggregate(jsonl, run)
+
+        # Then
+        mock_duration.assert_not_called()
+        mock_agg.assert_called_once_with([], 0.0)
+        assert result.total_duration_s == 0.0

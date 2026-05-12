@@ -35,7 +35,7 @@ app.include_router(nodes_router)
 app.include_router(results_router)
 app.include_router(leaderboard_router)
 
-_RUNNER_PATH = Path(__file__).resolve().parents[3] / "runner" / "runner.sh"
+_RUNNER_PATH = Path(__file__).resolve().parents[1] / "runner.sh"
 
 
 @app.get("/health", include_in_schema=False)
