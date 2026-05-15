@@ -12,7 +12,19 @@ from unittest.mock import AsyncMock
 import pytest
 
 from src.infra.terraform import destroy_node, provision_node
-from src.models import GpuType
+from src.models import Engine, GpuType, Run
+
+
+def _fake_run(run_id: uuid.UUID, gpu_type: GpuType) -> Run:
+    return Run(
+        id=run_id,
+        model="meta-llama/Llama-3.1-8B-Instruct",
+        model_size_b=8,
+        engine=Engine.vllm,
+        gpu_type_required=gpu_type,
+        gpu_count=1,
+        scenario_path="scenarios/basic_8b.yaml",
+    )
 
 
 def _fake_terraform(outputs: dict | None = None):
@@ -50,7 +62,7 @@ class TestProvisionNode:
         run_id = uuid.uuid4()
 
         # When
-        instance_id, public_ip = await provision_node(run_id, GpuType.L40S)
+        instance_id, public_ip = await provision_node(_fake_run(run_id, GpuType.L40S))
 
         # Then
         assert instance_id == "scw-abc123"
@@ -77,7 +89,7 @@ class TestProvisionNode:
 
         # When / Then
         with pytest.raises(RuntimeError, match="terraform apply failed"):
-            await provision_node(run_id, GpuType.L40S)
+            await provision_node(_fake_run(run_id, GpuType.L40S))
 
 
 class TestDestroyNode:

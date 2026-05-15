@@ -141,6 +141,52 @@ class RunRepository:
             await session.commit()
 
     @staticmethod
+    async def set_logs_url(run_id: uuid.UUID, logs_url: str) -> None:
+        async with AsyncSessionLocal() as session:
+            run = await session.get(Run, run_id)
+            if run is None:
+                raise ValueError(f"Run {run_id} not found")
+            run.logs_url = logs_url
+            await session.commit()
+
+    @staticmethod
+    async def claim_running_timed_out(cutoff: datetime) -> list[uuid.UUID]:
+        """Return ids of runs in `running` whose started_at < cutoff.
+
+        Uses SKIP LOCKED so concurrent pollers can't both claim the same run.
+        The caller is expected to invoke release + set_failed.
+        """
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Run)
+                .where(Run.status == RunStatus.running, Run.started_at < cutoff)
+                .with_for_update(skip_locked=True)
+            )
+            runs = result.scalars().all()
+            ids = [r.id for r in runs]
+            await session.commit()
+            return ids
+
+    @staticmethod
+    async def requeue_for_retry(run_id: uuid.UUID, max_attempts: int) -> int | None:
+        """Increment provision_attempts and put the run back to queued.
+
+        Returns the new attempt count if the run is eligible for another try,
+        or None if max_attempts has been reached (caller should mark failed).
+        """
+        async with AsyncSessionLocal() as session:
+            run = await session.get(Run, run_id)
+            if run is None:
+                raise ValueError(f"Run with id {run_id} not found")
+            run.provision_attempts += 1
+            if run.provision_attempts >= max_attempts:
+                await session.commit()
+                return None
+            run.status = RunStatus.queued
+            await session.commit()
+            return run.provision_attempts
+
+    @staticmethod
     async def set_failed(
         run_id: uuid.UUID, ended_at: datetime, error_message: str | None = None
     ) -> None:

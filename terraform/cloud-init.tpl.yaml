@@ -4,10 +4,27 @@ write_files:
   - path: /etc/llmgrill/env
     permissions: "0600"
     content: |
+      PATH=/opt/venv/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      CUDA_HOME=/usr/local/cuda
+      LD_LIBRARY_PATH=/usr/local/cuda/lib64
       RUN_ID=${run_id}
       ORCHESTRATOR_URL=${orchestrator_url}
       HF_TOKEN=${hf_token}
       ORCHESTRATOR_API_KEY=${orchestrator_api_key}
+      MODEL=${model}
+      ENGINE=${engine}
+      SCENARIO=/etc/llmgrill/scenario.yaml
+      GGUF_FILE=${gguf_file}
+
+  - path: /etc/llmgrill/scenario.yaml
+    permissions: "0644"
+    content: |
+      ${indent(6, scenario_content)}
+
+  - path: /opt/runner/runner.sh
+    permissions: "0755"
+    content: |
+      ${indent(6, runner_script)}
 
   - path: /etc/systemd/system/llmgrill-runner.service
     content: |
@@ -27,17 +44,14 @@ write_files:
       WantedBy=multi-user.target
 
 runcmd:
-  # NVIDIA persistence
   - nvidia-smi -pm 1
-
-  # Install jq
+  # CUDA toolkit (nvcc) — needed by vllm/flashinfer JIT kernel compilation.
+  # The Scaleway GPU image already ships the NVIDIA apt repo (cudatools.gpg)
+  # and a pre-created /usr/local/cuda → /usr/local/cuda-13.0 symlink, broken
+  # until the toolkit is installed.
   - apt-get update -y
-  - apt-get install -y jq
-
-  # Fetch runner script from orchestrator
-  - mkdir -p /opt/runner
-  - curl -fsSL ${orchestrator_url}/runner.sh -o /opt/runner/runner.sh
-  - chmod +x /opt/runner/runner.sh
-
-  # Start runner service
+  - apt-get install -y jq python3-pip python3.12-venv cuda-toolkit-13-0
+  - python3 -m venv /opt/venv
+  - /opt/venv/bin/pip install --upgrade pip
+  - /opt/venv/bin/pip install "huggingface_hub[cli]" llm-grill vllm
   - systemctl enable --now llmgrill-runner.service

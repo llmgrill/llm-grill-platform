@@ -33,7 +33,9 @@ class RunRead(BaseModel):
     scenario_path: str
     gguf_file: str | None
     results_url: str | None
+    logs_url: str | None
     error_message: str | None
+    node_ip: str | None = None
     created_at: datetime
     started_at: datetime | None
     ended_at: datetime | None

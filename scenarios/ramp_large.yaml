@@ -1,0 +1,36 @@
+name: ramp-large
+description: >
+  Ramp load test for large models (≥ 26B) served by vLLM.
+  Same scenario shape as ramp_small but with a tamer concurrency curve —
+  big models saturate at lower N.
+
+backends:
+  - name: vllm-local
+    url: "http://localhost:8080"
+    api_key: none
+    type: vllm
+    timeout: 120.0
+    gpu_monitoring: true
+
+models:
+  - name: "${MODEL}"
+    max_tokens: 256
+    temperature: 0.0
+
+conversations:
+  - name: basic-prompt
+    description: "Single short user prompt — neutral baseline."
+    turns:
+      - role: user
+        content: "Explain in one paragraph what makes a good engineering manager."
+
+targets:
+  - backend: vllm-local
+    model: "${MODEL}"
+    conversation: basic-prompt
+
+load:
+  ramp_levels: [1, 2, 4, 8, 16]
+  ramp_pause_seconds: 15.0
+  iterations: 2
+  think_time_seconds: 0.0

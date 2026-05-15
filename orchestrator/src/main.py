@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -7,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 
 from src.config import settings
+from src.logging_config import setup_logging
 from src.orchestrator import polling_loop
 from src.routers.bench import router as bench_router
 from src.routers.leaderboard import router as leaderboard_router
@@ -14,7 +14,7 @@ from src.routers.nodes import router as nodes_router
 from src.routers.results import router as results_router
 from src.routers.runs import router as runs_router
 
-logging.basicConfig(level=logging.INFO)
+setup_logging("DEBUG" if settings.debug else "INFO")
 
 
 @asynccontextmanager

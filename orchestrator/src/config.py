@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     postgres_db: str = "llmgrill"
 
     poll_interval_seconds: int = 10
+    provision_max_attempts: int = 30
+    # SSH public keys (comma-separated) injected on provisioned GPU VMs for debug access.
+    ssh_public_keys: str = ""
+    # Force-destroy a node if its run stays in "running" longer than this (minutes).
+    run_running_timeout_minutes: int = 60
 
     @model_validator(mode="after")
     def build_database_url(self) -> "Settings":

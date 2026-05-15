@@ -28,6 +28,12 @@ resource "scaleway_instance_server" "gpu" {
       orchestrator_url     = var.orchestrator_url
       hf_token             = var.hf_token
       orchestrator_api_key = var.orchestrator_api_key
+      model                = var.model
+      engine               = var.engine
+      scenario_path        = var.scenario_path
+      gguf_file            = var.gguf_file
+      scenario_content     = var.scenario_content
+      runner_script        = file("${path.module}/runner.sh")
     })
   }
 }

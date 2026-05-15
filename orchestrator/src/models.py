@@ -68,7 +68,11 @@ class Run(Base):
     scenario_path: Mapped[str] = mapped_column(String, nullable=False)
     gguf_file: Mapped[str | None] = mapped_column(String, nullable=True)
     results_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    logs_url: Mapped[str | None] = mapped_column(String, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    provision_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

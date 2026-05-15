@@ -1,14 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Required env vars: RUN_ID, ORCHESTRATOR_URL, HF_TOKEN, ORCHESTRATOR_API_KEY
+# Required env vars: RUN_ID, ORCHESTRATOR_URL, HF_TOKEN, ORCHESTRATOR_API_KEY,
+#                    MODEL, ENGINE, SCENARIO, GGUF_FILE (optional, may be empty)
 ORCHESTRATOR_URL="${ORCHESTRATOR_URL%/}"
 API_KEY_HEADER="X-API-Key: ${ORCHESTRATOR_API_KEY:-}"
+GGUF_FILE="${GGUF_FILE:-}"
 MODEL_DIR="/opt/models"
 ENGINE_PORT=8080
 ENGINE_PID=""
+LOG_FILE="/var/log/llmgrill-runner.log"
+
+# Mirror stdout/stderr to a file (also kept in journald via the systemd unit).
+: > "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+upload_logs() {
+  local size body tmp=""
+  size=$(stat -c %s "$LOG_FILE" 2>/dev/null || echo 0)
+  if [ "$size" -le 5242880 ]; then
+    body="$LOG_FILE"
+  else
+    tmp=$(mktemp)
+    head -c 2621440 "$LOG_FILE" > "$tmp"
+    printf '\n[... truncated middle %s bytes ...]\n' "$((size - 5242880))" >> "$tmp"
+    tail -c 2621440 "$LOG_FILE" >> "$tmp"
+    body="$tmp"
+  fi
+  curl -sf -X POST "${ORCHESTRATOR_URL}/runs/${RUN_ID}/logs" \
+    -H "$API_KEY_HEADER" -H "Content-Type: text/plain" \
+    --data-binary "@$body" || true
+  [[ -z "$tmp" ]] || rm -f "$tmp"
+  return 0
+}
 
 fail() {
+  upload_logs
   curl -sf -X POST "${ORCHESTRATOR_URL}/runs/${RUN_ID}/fail" \
     -H "Content-Type: application/json" \
     -H "$API_KEY_HEADER" \
@@ -19,25 +46,23 @@ fail() {
 
 trap 'fail "unexpected error on line $LINENO"' ERR
 
-# --- 1. Fetch run params ---
-RUN_JSON=$(curl -sf "${ORCHESTRATOR_URL}/runs/${RUN_ID}" -H "$API_KEY_HEADER")
-MODEL=$(echo "$RUN_JSON" | jq -r '.model')
-ENGINE=$(echo "$RUN_JSON" | jq -r '.engine')
-SCENARIO=$(echo "$RUN_JSON" | jq -r '.scenario_path')
-GGUF_FILE=$(echo "$RUN_JSON" | jq -r '.gguf_file // empty')
+# Run params are injected via cloud-init into /etc/llmgrill/env (MODEL, ENGINE,
+# SCENARIO, GGUF_FILE). No round-trip to the orchestrator is needed at startup.
 
-# --- 2. Download model ---
+# --- 1. Download model ---
 mkdir -p "${MODEL_DIR}/${MODEL}"
 if [[ -n "$GGUF_FILE" ]]; then
-  HF_TOKEN="$HF_TOKEN" huggingface-cli download "$MODEL" "$GGUF_FILE" --local-dir "${MODEL_DIR}/${MODEL}"
+  HF_TOKEN="$HF_TOKEN" hf download "$MODEL" "$GGUF_FILE" --local-dir "${MODEL_DIR}/${MODEL}"
 else
-  HF_TOKEN="$HF_TOKEN" huggingface-cli download "$MODEL" --local-dir "${MODEL_DIR}/${MODEL}"
+  HF_TOKEN="$HF_TOKEN" hf download "$MODEL" --local-dir "${MODEL_DIR}/${MODEL}"
 fi
 
 # --- 3. Start engine ---
 if [[ "$ENGINE" == "vllm" ]]; then
   python3 -m vllm.entrypoints.openai.api_server \
-    --model "${MODEL_DIR}/${MODEL}" --port "$ENGINE_PORT" &
+    --model "${MODEL_DIR}/${MODEL}" \
+    --served-model-name "$MODEL" \
+    --port "$ENGINE_PORT" &
   ENGINE_PID=$!
 elif [[ "$ENGINE" == "llamacpp" ]]; then
   if [[ -n "$GGUF_FILE" ]]; then
@@ -61,16 +86,20 @@ done
 # --- 5. Warmup ---
 curl -sf -X POST "http://localhost:${ENGINE_PORT}/v1/completions" \
   -H "Content-Type: application/json" \
-  -d '{"model":"default","prompt":"hello","max_tokens":1}' > /dev/null
+  -d "$(jq -n --arg m "$MODEL" '{model:$m,prompt:"hello",max_tokens:1}')" > /dev/null
 
 # --- 6. Benchmark ---
-RESULTS=$(llm-grill run --scenario "$SCENARIO" --output jsonl)
+RESULTS_FILE=/tmp/llmgrill-results.jsonl
+llm-grill run "$SCENARIO" --output "$RESULTS_FILE"
 
 # --- 7. Report success ---
+upload_logs
+COMPLETE_PAYLOAD=/tmp/llmgrill-complete.json
+jq -n --rawfile r "$RESULTS_FILE" '{results_jsonl: $r}' > "$COMPLETE_PAYLOAD"
 curl -sf -X POST "${ORCHESTRATOR_URL}/runs/${RUN_ID}/complete" \
   -H "Content-Type: application/json" \
   -H "$API_KEY_HEADER" \
-  -d "$(jq -n --arg r "$RESULTS" '{results_jsonl: $r}')"
+  --data-binary "@$COMPLETE_PAYLOAD"
 
 # --- 8. Cleanup ---
 kill "$ENGINE_PID" 2>/dev/null || true
