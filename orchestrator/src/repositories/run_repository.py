@@ -151,10 +151,11 @@ class RunRepository:
 
     @staticmethod
     async def claim_running_timed_out(cutoff: datetime) -> list[uuid.UUID]:
-        """Return ids of runs in `running` whose started_at < cutoff.
+        """Transition timed-out `running` runs to `failed` and return their ids.
 
-        Uses SKIP LOCKED so concurrent pollers can't both claim the same run.
-        The caller is expected to invoke release + set_failed.
+        Marks them failed in the same transaction as the SELECT so concurrent
+        pollers can't both claim the same run. Caller is expected to release
+        any associated node.
         """
         async with db.AsyncSessionLocal() as session:
             result = await session.execute(
@@ -164,6 +165,11 @@ class RunRepository:
             )
             runs = result.scalars().all()
             ids = [r.id for r in runs]
+            now = datetime.now(timezone.utc)
+            for r in runs:
+                r.status = RunStatus.failed
+                r.ended_at = now
+                r.error_message = "timeout: claimed by reaper"
             await session.commit()
             return ids
 

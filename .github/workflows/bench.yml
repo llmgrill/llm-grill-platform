@@ -70,15 +70,21 @@ jobs:
           VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
         run: |
           echo "Waiting for SSH..."
+          vm_ready=false
           for i in $(seq 1 30); do
             if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 deploy@${VM_IP} "docker info > /dev/null 2>&1"; then
               echo "VM ready."
               ssh-keyscan -H ${VM_IP} >> ~/.ssh/known_hosts
+              vm_ready=true
               break
             fi
             echo "Attempt $i/30 — retrying in 10s..."
             sleep 10
           done
+          if [ "$vm_ready" != "true" ]; then
+            echo "VM failed to become ready (SSH/Docker) after 30 attempts (~5 minutes)."
+            exit 1
+          fi
 
       - name: Copy repo to VM
         env:
@@ -123,14 +129,20 @@ jobs:
           VM_IP: ${{ steps.tf_output.outputs.vm_ip }}
         run: |
           echo "Waiting for orchestrator..."
+          orchestrator_up=false
           for i in $(seq 1 24); do
             if curl -sf --max-time 5 "http://${VM_IP}:8000/health" > /dev/null; then
               echo "Orchestrator up."
+              orchestrator_up=true
               break
             fi
             echo "Attempt $i/24 — retrying in 10s..."
             sleep 10
           done
+          if [ "$orchestrator_up" != "true" ]; then
+            echo "Orchestrator failed to become healthy after 24 attempts (~4 minutes)."
+            exit 1
+          fi
 
   # ── 2. Run benchmarks ────────────────────────────────────────────────────────
   bench:

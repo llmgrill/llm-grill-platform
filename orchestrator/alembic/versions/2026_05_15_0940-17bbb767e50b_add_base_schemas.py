@@ -27,11 +27,11 @@ def upgrade() -> None:
     sa.Column('gpu_count', sa.Integer(), nullable=False),
     sa.Column('status', sa.Enum('provisioning', 'busy', 'down', name='nodestatus'), nullable=False),
     sa.Column('ip_address', sa.String(), nullable=True),
-    sa.Column('current_run_id', sa.Uuid(), nullable=True),
+    sa.Column('current_run_id', sa.UUID(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('runs',
-    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('status', sa.Enum('queued', 'provisioning', 'running', 'done', 'failed', name='runstatus'), nullable=False),
     sa.Column('model', sa.String(), nullable=False),
     sa.Column('model_size_b', sa.Integer(), nullable=False),
@@ -48,8 +48,8 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('results',
-    sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('run_id', sa.Uuid(), nullable=False),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('run_id', sa.UUID(), nullable=False),
     sa.Column('model', sa.String(), nullable=False),
     sa.Column('engine', sa.String(), nullable=False),
     sa.Column('gpu_type', sa.Enum('L40S', 'H100', name='gputype'), nullable=False),
