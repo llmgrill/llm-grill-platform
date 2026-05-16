@@ -150,7 +150,7 @@ jobs:
             PARAMS="$PARAMS&model=${{ github.event.inputs.model }}"
           fi
           curl -sf -X POST \
-            -H "X-Api-Key: ${API_KEY}" \
+            -H "X-API-Key: ${API_KEY}" \
             "http://${VM_IP}:8000/bench?${PARAMS}" | tee /tmp/bench_submit.json
           echo "Submitted: $(jq '.submitted | length' /tmp/bench_submit.json) runs"
 
@@ -191,7 +191,7 @@ jobs:
   # ── 3. Destroy VM (always, even if bench failed) ─────────────────────────────
   teardown:
     needs: [provision, bench]
-    if: always() && needs.provision.result == 'success'
+    if: always() && needs.provision.result != 'skipped'
     runs-on: ubuntu-latest
     environment: production
 

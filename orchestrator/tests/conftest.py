@@ -31,11 +31,21 @@ async def session_factory():
 
 @pytest.fixture
 async def client(session_factory):
-    """AsyncClient wired to an in-memory DB."""
+    """AsyncClient wired to an in-memory DB with a valid API key."""
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
         headers={"X-API-Key": "test-key"},
+    ) as c:
+        yield c
+
+
+@pytest.fixture
+async def unauthenticated_client(session_factory):
+    """AsyncClient without API key headers, for testing auth failures."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
     ) as c:
         yield c
 

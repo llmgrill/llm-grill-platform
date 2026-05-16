@@ -2,14 +2,14 @@ import uuid
 
 from sqlalchemy import and_, func, select
 
-from src.db import AsyncSessionLocal
+from src import db
 from src.models import Result
 
 
 class ResultRepository:
     @staticmethod
     async def get_all() -> list[Result]:
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             result = await session.execute(
                 select(Result).order_by(Result.created_at.desc())
             )
@@ -17,7 +17,7 @@ class ResultRepository:
 
     @staticmethod
     async def get_by_run(run_id: uuid.UUID) -> Result | None:
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             result = await session.execute(
                 select(Result).where(Result.run_id == run_id)
             )
@@ -25,7 +25,7 @@ class ResultRepository:
 
     @staticmethod
     async def get_latest_per_combination() -> list[Result]:
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             subq = (
                 select(
                     Result.model,

@@ -64,7 +64,9 @@ class RunService:
         await RunRepository.set_logs_url(run_id, key)
         updated = await RunRepository.get(run_id)
         if updated is None:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail="run not found after log upload")
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, detail="run not found after log upload"
+            )
         return updated
 
     @staticmethod

@@ -49,7 +49,8 @@ def _classify(stderr: str) -> TerraformError:
 parent_dir = Path(__file__).resolve().parents[2]
 _TERRAFORM_DIR = parent_dir / "terraform"
 _WORKSPACES_DIR = _TERRAFORM_DIR / "workspaces"
-_RUNNER_SCRIPT = parent_dir / "runner.sh"
+_RUNNER_SCRIPT = parent_dir.parent / "runner" / "runner.sh"
+_SCENARIOS_ROOT = parent_dir.parent
 
 _INSTANCE_TYPE = {
     GpuType.L40S: "L40S-1-48G",
@@ -88,7 +89,7 @@ async def provision_node(run: Run) -> tuple[str, str]:
     ssh_keys = [k.strip() for k in settings.ssh_public_keys.split(",") if k.strip()]
     ssh_keys_hcl = "[" + ", ".join(f'"{k}"' for k in ssh_keys) + "]"
 
-    scenario_file = (parent_dir / run.scenario_path).resolve()
+    scenario_file = (_SCENARIOS_ROOT / run.scenario_path).resolve()
     if not scenario_file.is_file():
         raise TerraformError(f"scenario file not found: {scenario_file}")
     scenario_content = scenario_file.read_text().replace("${MODEL}", run.model)

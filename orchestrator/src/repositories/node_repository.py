@@ -2,25 +2,25 @@ import uuid
 
 from sqlalchemy import select
 
-from src.db import AsyncSessionLocal
+from src import db
 from src.models import GpuType, Node, NodeStatus, Run, RunStatus
 
 
 class NodeRepository:
     @staticmethod
     async def get(node_id: str) -> Node | None:
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             return await session.get(Node, node_id)
 
     @staticmethod
     async def get_all() -> list[Node]:
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             result = await session.execute(select(Node).order_by(Node.id))
             return list(result.scalars().all())
 
     @staticmethod
     async def get_by_run(run_id: uuid.UUID) -> Node | None:
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             result = await session.execute(
                 select(Node).where(Node.current_run_id == run_id)
             )
@@ -28,7 +28,7 @@ class NodeRepository:
 
     @staticmethod
     async def create(node: Node) -> Node:
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             session.add(node)
             await session.commit()
             await session.refresh(node)
@@ -36,7 +36,7 @@ class NodeRepository:
 
     @staticmethod
     async def save(node: Node) -> Node:
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             node = await session.merge(node)
             await session.commit()
             await session.refresh(node)
@@ -50,7 +50,7 @@ class NodeRepository:
             status=NodeStatus.provisioning,
             current_run_id=run_id,
         )
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             session.add(node)
             await session.commit()
             await session.refresh(node)
@@ -58,7 +58,7 @@ class NodeRepository:
 
     @staticmethod
     async def set_busy(run_id: uuid.UUID, instance_id: str, public_ip: str) -> None:
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             result = await session.execute(
                 select(Node).where(Node.current_run_id == run_id)
             )
@@ -71,7 +71,7 @@ class NodeRepository:
     @staticmethod
     async def get_leaked() -> list[uuid.UUID]:
         """Return run IDs of nodes still busy whose run is done or failed."""
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             result = await session.execute(
                 select(Node.current_run_id)
                 .join(Run, Run.id == Node.current_run_id)
@@ -82,7 +82,7 @@ class NodeRepository:
 
     @staticmethod
     async def set_down_by_run(run_id: uuid.UUID) -> None:
-        async with AsyncSessionLocal() as session:
+        async with db.AsyncSessionLocal() as session:
             result = await session.execute(
                 select(Node).where(Node.current_run_id == run_id)
             )

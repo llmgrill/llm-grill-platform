@@ -56,8 +56,13 @@ class TestProvisionNode:
         # Given
         mocker.patch("src.infra.terraform._TERRAFORM_DIR", tmp_path)
         mocker.patch("src.infra.terraform._WORKSPACES_DIR", tmp_path / "workspaces")
+        mocker.patch("src.infra.terraform._SCENARIOS_ROOT", tmp_path)
+        mocker.patch("src.infra.terraform._RUNNER_SCRIPT", tmp_path / "runner.sh")
         (tmp_path).mkdir(exist_ok=True)
         (tmp_path / "cloud-init.tpl.yaml").write_text("cloud-init")
+        (tmp_path / "runner.sh").write_text("#!/bin/sh")
+        (tmp_path / "scenarios").mkdir(exist_ok=True)
+        (tmp_path / "scenarios" / "basic_8b.yaml").write_text("model: ${MODEL}")
         mocker.patch("src.infra.terraform._terraform", side_effect=_fake_terraform())
         run_id = uuid.uuid4()
 
@@ -79,7 +84,12 @@ class TestProvisionNode:
         # Given
         mocker.patch("src.infra.terraform._TERRAFORM_DIR", tmp_path)
         mocker.patch("src.infra.terraform._WORKSPACES_DIR", tmp_path / "workspaces")
+        mocker.patch("src.infra.terraform._SCENARIOS_ROOT", tmp_path)
+        mocker.patch("src.infra.terraform._RUNNER_SCRIPT", tmp_path / "runner.sh")
         (tmp_path / "cloud-init.tpl.yaml").write_text("cloud-init")
+        (tmp_path / "runner.sh").write_text("#!/bin/sh")
+        (tmp_path / "scenarios").mkdir(exist_ok=True)
+        (tmp_path / "scenarios" / "basic_8b.yaml").write_text("model: ${MODEL}")
 
         async def _fail(workspace, *args):
             raise RuntimeError("terraform apply failed")
