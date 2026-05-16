@@ -322,7 +322,6 @@ Remplir `infra/terraform.tfvars` :
 region        = "fr-par"
 zone          = "fr-par-2"
 instance_type = "GPU-3070-S"   # instance GPU L40S
-deploy_user   = "deploy"
 
 ssh_public_keys = [
   "ssh-ed25519 AAAA...",   # ta clé publique : cat ~/.ssh/id_ed25519.pub

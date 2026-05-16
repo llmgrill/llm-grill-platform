@@ -7,3 +7,8 @@ output "instance_id" {
   description = "Scaleway instance ID"
   value       = scaleway_instance_server.orchestrator.id
 }
+
+output "results_bucket" {
+  description = "Scaleway Object Storage bucket name for results + logs"
+  value       = scaleway_object_bucket.results.name
+}

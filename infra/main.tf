@@ -2,6 +2,19 @@ locals {
   name = "llmgrill-orchestrator"
 }
 
+# ── Results bucket ────────────────────────────────────────────────────────────
+# Stores per-run results.jsonl and runner logs uploaded by the orchestrator.
+# Independent of the VM lifecycle; protected from accidental destroy.
+
+resource "scaleway_object_bucket" "results" {
+  name   = var.results_bucket_name
+  region = var.region
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
 # ── Security group ────────────────────────────────────────────────────────────
 
 resource "scaleway_instance_security_group" "orchestrator" {
@@ -59,7 +72,6 @@ resource "scaleway_instance_server" "orchestrator" {
 
   user_data = {
     "cloud-init" = templatefile("${path.module}/cloud-init.tpl.yaml", {
-      deploy_user     = var.deploy_user
       ssh_public_keys = var.ssh_public_keys
     })
   }

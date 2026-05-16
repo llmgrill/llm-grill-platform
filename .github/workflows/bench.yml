@@ -47,7 +47,6 @@ jobs:
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
           TF_VAR_ssh_public_keys: '["${{ secrets.DEPLOY_SSH_PUBLIC_KEY }}"]'
           TF_VAR_admin_cidrs: '["0.0.0.0/0"]'
-          TF_VAR_deploy_user: "deploy"
         run: terraform apply -auto-approve
 
       - name: Get VM IP
@@ -221,5 +220,4 @@ jobs:
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
           TF_VAR_ssh_public_keys: '["${{ secrets.DEPLOY_SSH_PUBLIC_KEY }}"]'
           TF_VAR_admin_cidrs: '["0.0.0.0/0"]'
-          TF_VAR_deploy_user: "deploy"
         run: terraform destroy -auto-approve

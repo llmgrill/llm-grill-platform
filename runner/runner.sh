@@ -10,12 +10,14 @@ MODEL_DIR="/opt/models"
 ENGINE_PORT=8080
 ENGINE_PID=""
 LOG_FILE="/var/log/llmgrill-runner.log"
+LOGS_UPLOADED=0
 
 # Mirror stdout/stderr to a file (also kept in journald via the systemd unit).
 : > "$LOG_FILE"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 upload_logs() {
+  [[ "$LOGS_UPLOADED" == "1" ]] && return 0
   local size body tmp=""
   size=$(stat -c %s "$LOG_FILE" 2>/dev/null || echo 0)
   if [ "$size" -le 5242880 ]; then
@@ -31,6 +33,7 @@ upload_logs() {
     -H "$API_KEY_HEADER" -H "Content-Type: text/plain" \
     --data-binary "@$body" || true
   [[ -z "$tmp" ]] || rm -f "$tmp"
+  LOGS_UPLOADED=1
   return 0
 }
 

@@ -1,7 +1,6 @@
 region        = "fr-par"
-zone          = "fr-par-1"
-instance_type = "DEV1-M"
-deploy_user   = "deploy"
+zone          = "fr-par-2"
+instance_type = "DEV1-S"
 
 # Your SSH public key(s) — used by CI and for emergency access
 ssh_public_keys = [

@@ -7,13 +7,13 @@ variable "region" {
 variable "zone" {
   description = "Scaleway zone for the orchestrator VM"
   type        = string
-  default     = "fr-par-1"
+  default     = "fr-par-2"
 }
 
 variable "instance_type" {
-  description = "Scaleway instance type (DEV1-M = 3 vCPU / 4 GB, PLAY2-MICRO = 1 vCPU / 1 GB)"
+  description = "Scaleway instance type"
   type        = string
-  default     = "DEV1-M"
+  default     = "DEV1-S"
 }
 
 variable "ssh_public_keys" {
@@ -26,8 +26,8 @@ variable "admin_cidrs" {
   type        = list(string)
 }
 
-variable "deploy_user" {
-  description = "Linux user created for CI deployments"
+variable "results_bucket_name" {
+  description = "Scaleway Object Storage bucket for per-run results + logs"
   type        = string
-  default     = "deploy"
+  default     = "llmgrill-results"
 }

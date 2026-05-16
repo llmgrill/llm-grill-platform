@@ -1,7 +1,7 @@
 #cloud-config
 
 users:
-  - name: ${deploy_user}
+  - name: deploy
     groups: [sudo]
     shell: /bin/bash
     sudo: "ALL=(ALL) NOPASSWD:ALL"
@@ -28,4 +28,4 @@ runcmd:
   - systemctl enable --now docker
 
   # Allow deploy user to use docker without sudo
-  - usermod -aG docker ${deploy_user}
+  - usermod -aG docker deploy
