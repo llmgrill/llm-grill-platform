@@ -6,7 +6,7 @@
 #   model:       HuggingFace model ID (org/name)
 #   engine:      vllm | llamacpp
 #   size_b:      model size in billions of parameters
-#   scenario:    path to scenario YAML (default: scenarios/ramp_small.yaml)
+#   scenario:    path to scenario YAML (default: scenarios/ramp.yaml)
 #   gguf_file:   (llamacpp only) specific GGUF filename to download
 
 models:
@@ -48,12 +48,10 @@ models:
   - model: meta-llama/Llama-3.3-70B-Instruct
     engine: vllm
     size_b: 70
-    scenario: scenarios/ramp_large.yaml
 
   - model: Qwen/Qwen2.5-72B-Instruct
     engine: vllm
     size_b: 72
-    scenario: scenarios/ramp_large.yaml
 
   # --- Reasoning ---
   - model: deepseek-ai/DeepSeek-R1-Distill-Llama-8B

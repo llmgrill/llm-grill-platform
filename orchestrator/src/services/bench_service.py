@@ -20,7 +20,7 @@ class ModelEntry(BaseModel):
     model: str
     engine: Literal["vllm", "llamacpp"]
     size_b: int
-    scenario: str = "scenarios/ramp_small.yaml"
+    scenario: str = "scenarios/ramp.yaml"
     gguf_file: str | None = None
 
     @field_validator("gguf_file")

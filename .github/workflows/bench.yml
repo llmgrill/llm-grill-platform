@@ -102,6 +102,7 @@ jobs:
           ssh deploy@${VM_IP} "cat > ~/llm-grill-nightly/.env" <<EOF
           POSTGRES_USER=${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
           ORCHESTRATOR_URL=http://${VM_IP}:8000
           API_KEY=${{ secrets.API_KEY }}
           HF_TOKEN=${{ secrets.HF_TOKEN }}
@@ -221,14 +222,6 @@ jobs:
             "docker logs llmgrill-orchestrator --tail=500 2>&1" > /tmp/diagnostics/orchestrator.log || true
           ssh -o StrictHostKeyChecking=no deploy@${VM_IP} \
             "docker logs llmgrill-migration --tail=200 2>&1" > /tmp/diagnostics/migration.log || true
-          ssh -o StrictHostKeyChecking=no deploy@${VM_IP} \
-            "docker ps -a" > /tmp/diagnostics/docker_ps.txt || true
-          ssh -o StrictHostKeyChecking=no deploy@${VM_IP} \
-            "sudo journalctl --no-pager -n 2000 --since '30 min ago'" > /tmp/diagnostics/journalctl.log || true
-          ssh -o StrictHostKeyChecking=no deploy@${VM_IP} \
-            "sudo journalctl -u docker --no-pager -n 500" > /tmp/diagnostics/journalctl_docker.log || true
-          ssh -o StrictHostKeyChecking=no deploy@${VM_IP} \
-            "sudo cat /var/log/cloud-init-output.log" > /tmp/diagnostics/cloud-init-output.log || true
 
       - name: Upload diagnostics
         if: failure()

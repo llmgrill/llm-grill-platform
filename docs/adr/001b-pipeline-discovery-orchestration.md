@@ -44,7 +44,7 @@ Fields:
 - `model` — HuggingFace ID (`org/name`)
 - `engine` — `vllm` or `llamacpp`
 - `size_b` — model size in billions (used to select GPU type)
-- `scenario` — optional, defaults to `scenarios/basic_8b.yaml`
+- `scenario` — optional, defaults to `scenarios/ramp.yaml`
 - `gguf_file` — llamacpp only, specific GGUF filename to download
 
 ### Scripts

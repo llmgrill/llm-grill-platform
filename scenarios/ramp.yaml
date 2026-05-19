@@ -1,11 +1,12 @@
-name: ramp-small
+name: ramp
 description: >
-  Ramp load test for small models (≤ 13B) served by vLLM.
-  Single backend (local), single model (injected via ${MODEL} substitution),
-  single short user prompt, concurrency progressive de 1 à 50 users.
+  Ramp load test: progressive concurrency on a single local backend serving a
+  single model (injected via ${MODEL} substitution), with a short neutral user
+  prompt. Works across model sizes — larger models will saturate earlier on the
+  curve, smaller models will keep scaling up to the highest level.
 
 backends:
-  - name: vllm-local
+  - name: local
     url: "http://localhost:8080"
     api_key: none
     type: vllm
@@ -25,12 +26,12 @@ conversations:
         content: "Explain in one paragraph what makes a good engineering manager."
 
 targets:
-  - backend: vllm-local
+  - backend: local
     model: "${MODEL}"
     conversation: basic-prompt
 
 load:
-  ramp_levels: [1, 5, 10, 20, 50]
+  ramp_levels: [1, 4, 8, 16, 32, 64]
   ramp_pause_seconds: 15.0
   iterations: 2
   think_time_seconds: 0.0
