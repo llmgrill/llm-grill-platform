@@ -22,7 +22,7 @@ COPY orchestrator/src ./src
 COPY orchestrator/alembic ./alembic
 COPY orchestrator/alembic.ini ./alembic.ini
 COPY orchestrator/models.yaml ./models.yaml
-COPY terraform ./terraform
+COPY infra/gpu-vm ./infra/gpu-vm
 COPY scenarios ./scenarios
 COPY runner ./runner
 

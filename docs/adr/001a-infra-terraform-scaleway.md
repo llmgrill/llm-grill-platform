@@ -28,7 +28,7 @@ The nightly pipeline needs H100 GPU instances to run benchmarks. Requirements:
 
 ## Design
 
-**Structure**: `infra/` contains `main.tf`, `variables.tf`, `outputs.tf` and per-backend bash setup scripts (`setup-vllm.sh`, `setup-llamacpp.sh`).
+**Structure**: `infra/orchestrator-vm/` holds the Terraform for the ephemeral orchestrator VM. `infra/gpu-vm/` holds the Terraform module instantiated once per GPU run (`main.tf`, `variables.tf`, `outputs.tf`, `cloud-init.tpl.yaml`).
 
 **Provisioning**: Terraform creates N `H100-1-80G` instances via `for_each` on the backends list. Each instance gets a cloud-init that installs CUDA, Python, `llm-grill`, the relevant backend, and downloads the model from HuggingFace.
 

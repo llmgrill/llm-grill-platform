@@ -28,10 +28,10 @@ Out of scope:
 
 ## Best practices for operators
 
-- **Never commit `.env`** or `infra/terraform.tfvars` — they contain secrets and personal data. Both are gitignored.
+- **Never commit `.env`** or `infra/orchestrator-vm/terraform.tfvars` — they contain secrets and personal data. Both are gitignored.
 - **Rotate `API_KEY`** if a CI run leaked logs externally. Generate with `openssl rand -hex 32`.
 - **Use a remote Terraform backend** with state encryption for shared deployments.
-- **Restrict `admin_cidrs`** in `infra/terraform.tfvars` to your egress IPs. The CI default of `0.0.0.0/0` is permissive on purpose (GitHub-hosted runners have no fixed IP range).
+- **Restrict `admin_cidrs`** in `infra/orchestrator-vm/terraform.tfvars` to your egress IPs. The CI default of `0.0.0.0/0` is permissive on purpose (GitHub-hosted runners have no fixed IP range).
 - **Scope HuggingFace tokens** to the minimum (read-only, gated-model access).
 - **Audit `SSH_PUBLIC_KEYS`** regularly — those keys are injected on every provisioned GPU VM.
 - **Use Scaleway IAM** to scope `SCW_*` keys to a single project, ideally with object-storage + instance permissions only.

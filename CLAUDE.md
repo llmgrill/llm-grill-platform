@@ -54,8 +54,9 @@ orchestrator/src/
 orchestrator/alembic/  # DB migrations
 orchestrator/tests/    # pytest
 
-infra/                 # Terraform — orchestrator VM (ephemeral)
-terraform/             # Terraform — GPU VM module (per-run)
+infra/
+├── orchestrator-vm/   # Terraform — orchestrator VM (ephemeral)
+└── gpu-vm/            # Terraform — GPU VM module (per-run)
 runner/                # cloud-init / systemd runner on GPU VM
 
 scenarios/             # llm-grill scenario YAMLs
@@ -219,7 +220,7 @@ orchestrator/tests/
 Already in `.gitignore` — keep it that way:
 
 - `.env`
-- `infra/terraform.tfvars`, `*.tfstate*`, `.terraform/`
+- `infra/orchestrator-vm/terraform.tfvars`, `*.tfstate*`, `.terraform/`
 - `__pycache__/`, `.venv/`, `.pytest_cache/`, `.ruff_cache/`
 - `htmlcov/`, `.coverage`
 - `.DS_Store`

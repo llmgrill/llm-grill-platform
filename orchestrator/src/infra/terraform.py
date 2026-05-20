@@ -59,7 +59,7 @@ def _find_repo_root() -> Path:
 
 
 _REPO_ROOT = _find_repo_root()
-_TERRAFORM_DIR = _REPO_ROOT / "terraform"
+_TERRAFORM_DIR = _REPO_ROOT / "infra" / "gpu-vm"
 _WORKSPACES_DIR = _TERRAFORM_DIR / "workspaces"
 _RUNNER_SCRIPT = _REPO_ROOT / "runner" / "runner.sh"
 _SCENARIOS_ROOT = _REPO_ROOT
