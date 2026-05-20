@@ -44,14 +44,28 @@ class NodeRepository:
 
     @staticmethod
     async def create_provisioning(run_id: uuid.UUID, gpu_type: GpuType) -> Node:
-        node = Node(
-            id=f"node-{run_id}",
-            gpu_type=gpu_type,
-            status=NodeStatus.provisioning,
-            current_run_id=run_id,
-        )
+        """Insert or reset a `provisioning` node row for this run.
+
+        Idempotent so retries (e.g. after `out of stock` re-queue) don't fail
+        on a duplicate primary key when the previous attempt left a `down`
+        row behind.
+        """
+        node_id = f"node-{run_id}"
         async with db.AsyncSessionLocal() as session:
-            session.add(node)
+            node = await session.get(Node, node_id)
+            if node is None:
+                node = Node(
+                    id=node_id,
+                    gpu_type=gpu_type,
+                    status=NodeStatus.provisioning,
+                    current_run_id=run_id,
+                )
+                session.add(node)
+            else:
+                node.gpu_type = gpu_type
+                node.status = NodeStatus.provisioning
+                node.ip_address = None
+                node.current_run_id = run_id
             await session.commit()
             await session.refresh(node)
             return node

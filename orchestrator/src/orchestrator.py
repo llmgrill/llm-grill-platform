@@ -38,7 +38,14 @@ async def handle_queued_run(run_id, gpu_type_required) -> None:
     global _in_flight_provisions
     try:
         async with _provision_semaphore:
-            await _provision_under_permit(run_id, gpu_type_required)
+            try:
+                await _provision_under_permit(run_id, gpu_type_required)
+            except Exception as exc:
+                # Last-resort guard: any unexpected error before/around
+                # provision_node would otherwise leave the run pinned in
+                # `provisioning` until the watchdog reaps it 30 min later.
+                logger.exception("unhandled error in provisioning of run {}", run_id)
+                await _fail(run_id, f"unhandled: {exc}")
     finally:
         _in_flight_provisions -= 1
 
