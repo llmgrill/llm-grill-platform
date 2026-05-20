@@ -1,0 +1,46 @@
+# Terraform state / cache / lock files — never bake into image
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.backup
+**/*.tfstate.*
+**/.terraform.lock.hcl
+**/crash.log
+**/crash.*.log
+**/override.tf
+**/override.tf.json
+**/*_override.tf
+**/*_override.tf.json
+**/terraform.tfvars
+**/*.auto.tfvars
+
+# Terraform workspaces (runtime state, kept empty in VCS)
+infra/gpu-vm/workspaces/*
+!infra/gpu-vm/workspaces/.gitkeep
+
+# Python / build artifacts
+**/__pycache__/
+**/*.pyc
+**/.venv/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/htmlcov/
+**/.coverage
+
+# Local env / secrets
+.env
+**/.env.local
+**/*.pem
+**/*.key
+
+# VCS / editor
+.git/
+.gitignore
+.github/
+.claude/
+**/.DS_Store
+
+# Docs / tests not needed at runtime
+docs/
+**/tests/
+*.md
