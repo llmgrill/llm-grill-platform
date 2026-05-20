@@ -60,7 +60,7 @@ LayerCake (Svelte-native, lightweight). Fallback: Chart.js via `svelte-chartjs` 
 
 ### Deployment
 
-GitHub Actions (`deploy.yml`): triggers on push to `results/` on main. Copies pre-aggregated JSON, builds SvelteKit, deploys to GitHub Pages.
+GitHub Actions (`deploy.yml`): triggered after the `bench` workflow uploads a new `leaderboard.json` to S3 (manual trigger or post-bench hook). Builds SvelteKit, deploys to GitHub Pages; the page fetches `leaderboard.json` from S3 at runtime (or bakes it at build time — see `docs/frontend-plan.md`).
 
 ## Consequences
 

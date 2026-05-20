@@ -28,7 +28,6 @@ crash.log
 crash.*.log
 
 # Runner artefacts
-results/
 *.jsonl
 
 # Editors / OS

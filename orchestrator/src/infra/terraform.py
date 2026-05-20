@@ -47,21 +47,21 @@ def _classify(stderr: str) -> TerraformError:
 
 
 def _find_repo_root() -> Path:
-    """Find the ancestor that holds runner/runner.sh.
+    """Find the ancestor that holds infra/gpu-vm/runner.sh.
 
     Works both in local dev (repo root) and in the Docker image (/app), as long
-    as the Dockerfile copies `runner/` as a directory (not just the script).
+    as the Dockerfile copies `infra/gpu-vm/` as a directory.
     """
     for parent in Path(__file__).resolve().parents:
-        if (parent / "runner" / "runner.sh").is_file():
+        if (parent / "infra" / "gpu-vm" / "runner.sh").is_file():
             return parent
-    raise RuntimeError("could not locate repo root (runner/runner.sh not found)")
+    raise RuntimeError("could not locate repo root (infra/gpu-vm/runner.sh not found)")
 
 
 _REPO_ROOT = _find_repo_root()
 _TERRAFORM_DIR = _REPO_ROOT / "infra" / "gpu-vm"
 _WORKSPACES_DIR = _TERRAFORM_DIR / "workspaces"
-_RUNNER_SCRIPT = _REPO_ROOT / "runner" / "runner.sh"
+_RUNNER_SCRIPT = _TERRAFORM_DIR / "runner.sh"
 _SCENARIOS_ROOT = _REPO_ROOT
 
 _INSTANCE_TYPE = {

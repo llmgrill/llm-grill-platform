@@ -1,9 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
 
 from src.config import settings
 from src.logging_config import setup_logging
@@ -36,14 +34,7 @@ app.include_router(nodes_router)
 app.include_router(results_router)
 app.include_router(leaderboard_router)
 
-_RUNNER_PATH = Path(__file__).resolve().parents[1] / "runner.sh"
-
 
 @app.get("/health", include_in_schema=False)
 async def health():
     return {"status": "ok"}
-
-
-@app.get("/runner.sh", include_in_schema=False)
-async def serve_runner():
-    return FileResponse(_RUNNER_PATH, media_type="text/plain")

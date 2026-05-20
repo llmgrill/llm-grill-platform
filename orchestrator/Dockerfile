@@ -24,7 +24,6 @@ COPY orchestrator/alembic.ini ./alembic.ini
 COPY orchestrator/models.yaml ./models.yaml
 COPY infra/gpu-vm ./infra/gpu-vm
 COPY scenarios ./scenarios
-COPY runner ./runner
 
 RUN useradd --system --no-create-home appuser && chown -R appuser /app
 USER appuser

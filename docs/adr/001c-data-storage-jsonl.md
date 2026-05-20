@@ -1,8 +1,16 @@
 # ADR 001c: Storage — JSONL in Git as Source of Truth
 
 **Date:** 2026-03-25
-**Status:** Validated
+**Status:** Superseded 2026-05-20 — see [Superseded by](#superseded-by) below.
 **Parent:** [ADR 001](001-automated-benchmark-site.md)
+
+---
+
+## Superseded by
+
+Implementation moved to **PostgreSQL (live state, metrics) + Scaleway S3 (`leaderboard.json`)** during Wave 0.5 / Wave 1A. The `results/` JSONL-in-Git design was never wired into the orchestrator: there is no JSONL writer, dedup happens via DB queries (`RunRepository.has_completed_run`), and the frontend (when built) will read `leaderboard.json` straight from S3 — see [`docs/deployment.md`](../deployment.md) and [ADR 001f](001f-aggregation-strategy.md).
+
+This ADR is retained as historical context for why the JSONL-in-Git option was initially chosen and what its rejected alternatives were. Do not implement against this design.
 
 ---
 

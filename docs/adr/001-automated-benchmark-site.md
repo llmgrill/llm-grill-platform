@@ -18,7 +18,7 @@ Create a dedicated repo (`llm-grill-platform`) split into independent components
 |-----|-----------|-------|
 | [001a](001a-infra-terraform-scaleway.md) | **Infra** | Terraform + Scaleway, GPU nodes on demand |
 | [001b](001b-pipeline-discovery-orchestration.md) | **Pipeline** | Hardcoded model list, CI-triggered benchmarks |
-| [001c](001c-data-storage-jsonl.md) | **Storage** | JSONL format, `results/` layout, dedup |
+| [001c](001c-data-storage-jsonl.md) | **Storage** (superseded) | Original JSONL-in-Git plan; current impl uses PostgreSQL + S3 `leaderboard.json` |
 | [001d](001d-frontend-sveltekit.md) | **Frontend** | Static SvelteKit site — single scatter plot page |
 | [001e](001e-error-handling-alerting.md) | **Errors** | Failure classification, orphan sweep, alerting |
 | [001f](001f-aggregation-strategy.md) | **Aggregation** | Single Python aggregation, no JS duplication |
@@ -30,29 +30,32 @@ Create a dedicated repo (`llm-grill-platform`) split into independent components
 llm-grill-platform/
 ├── .github/workflows/
 │   ├── bench.yml            # Triggered on models.yaml push or manual dispatch (001b)
-│   └── deploy.yml           # Rebuild site on results/ push (001d)
+│   └── deploy.yml           # Frontend deploy on new leaderboard.json (001d, future)
 ├── orchestrator/
 │   ├── models.yaml          # Hardcoded model list (source of truth)
 │   └── src/                 # FastAPI orchestrator — POST /bench, Terraform, runner
-├── results/                 # Raw JSONL + aggregated JSON (001c, 001f)
-├── site/                    # SvelteKit static site (001d)
+├── infra/                   # Terraform — orchestrator VM + per-run GPU VM (001a)
+├── runner/                  # cloud-init + runner.sh executed on each GPU VM
+├── site/                    # SvelteKit static site (001d, future)
 └── README.md
 ```
+
+Metrics live in PostgreSQL on the orchestrator VM; the consolidated `leaderboard.json` is published to Scaleway S3 at the end of each bench run (001c superseded, 001f).
 
 ## Flow
 
 ```
 push to models.yaml (or manual dispatch)
-  → CI: POST /bench to orchestrator
+  → CI: terraform apply (orchestrator VM) + POST /bench
   → orchestrator: diff models.yaml vs DB
   → for each new/missing model:
-      terraform apply → GPU node
+      terraform apply → GPU VM
       runner.sh (download + vLLM/llama.cpp + llm-grill)
-      results JSONL reported back
-      terraform destroy
+      runner POSTs /runs/{id}/complete (metrics → Postgres)
+      orchestrator: terraform destroy
   → CI: poll GET /bench/status until active=0
-  → git commit + push results/
-  → automatic site rebuild
+  → CI: GET /leaderboard → upload to s3://<bucket>/leaderboard.json
+  → CI: terraform destroy (orchestrator VM)
 ```
 
 ## Implementation Order

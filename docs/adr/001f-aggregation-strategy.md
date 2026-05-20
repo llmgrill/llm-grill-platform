@@ -1,14 +1,14 @@
 # ADR 001f: Aggregation Strategy — Single Source of Truth
 
 **Date:** 2026-03-25
-**Status:** Validated
+**Status:** Validated — design carried over after storage migration ([ADR 001c](001c-data-storage-jsonl.md) superseded). Decision unchanged: a single Python aggregation step feeds the frontend.
 **Parent:** [ADR 001](001-automated-benchmark-site.md)
 
 ---
 
 ## Context
 
-ADR 001c and 001d both flag the same issue: aggregation logic (percentiles, success filtering, tokens/s) would be duplicated between Python (`llm_grill/metrics.py`) and JavaScript (`site/scripts/build-data.js`). This creates a divergence risk — the site and CLI could show different numbers for the same data.
+ADR 001c and 001d both flag the same issue: aggregation logic (percentiles, success filtering, tokens/s) would be duplicated between Python (`llm_grill/metrics.py`) and JavaScript. This creates a divergence risk — the site and CLI could show different numbers for the same data.
 
 ## Options Considered
 
@@ -24,27 +24,25 @@ ADR 001c and 001d both flag the same issue: aggregation logic (percentiles, succ
 
 ## Design
 
-### `pipeline/aggregate.py`
+### `orchestrator/src/aggregation.py`
 
-Runs after benchmarks are committed. Reads `results/**/*.jsonl`, reuses `llm_grill.metrics.aggregate()`, and writes:
+Called by the `GET /leaderboard` endpoint. Reuses `llm_grill.metrics` semantics, queries the `results` table in Postgres, and returns one JSON document per request.
 
-| Output | Content |
-|--------|---------|
-| `results/aggregated/leaderboard.json` | Latest run per (model, backend) with mean/p95 TTFT, tokens/s, success rate |
-| `results/aggregated/models/{slug}.json` | All runs for a model across all backends and dates |
-| `results/aggregated/history.json` | Time series for performance evolution charts |
+The `bench` CI workflow fetches `/leaderboard`, uploads it as `s3://${SCW_BUCKET}/leaderboard.json` (public-read), and the frontend (when built) consumes that URL directly.
 
-### Updated flow
+| Output | Source | Content |
+|--------|--------|---------|
+| `s3://${SCW_BUCKET}/leaderboard.json` | `GET /leaderboard` → S3 upload in [`.github/workflows/bench.yml`](../../.github/workflows/bench.yml) | Latest run per (model, backend) with mean/p95 TTFT, tokens/s, success rate |
+
+History and per-model views were initially planned (`models/{slug}.json`, `history.json`) but are not implemented today; if needed they would follow the same pattern (DB query → S3 upload).
+
+### Flow
 
 ```
-run.py → benchmarks → commit JSONL
-aggregate.py → commit aggregated JSON
-site build: copies results/aggregated/ → static/data/ (no computation)
+runner (GPU VM) → POST /runs/{id}/complete (metrics) → Postgres
+CI               → GET  /leaderboard → S3 upload (leaderboard.json)
+frontend         → fetch leaderboard.json from S3 at runtime
 ```
-
-### Aggregated files are committed
-
-Trade-off: slightly larger repo (~50 KB total), but the site build needs no JSONL parsing, and aggregated data is versioned and auditable.
 
 ## Consequences
 

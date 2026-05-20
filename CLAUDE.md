@@ -225,4 +225,4 @@ Already in `.gitignore` — keep it that way:
 - `htmlcov/`, `.coverage`
 - `.DS_Store`
 - `.claude/worktrees/`
-- `results/`, `*.jsonl`
+- `*.jsonl`

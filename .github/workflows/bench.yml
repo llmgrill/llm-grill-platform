@@ -153,7 +153,6 @@ jobs:
   bench:
     needs: provision
     runs-on: ubuntu-latest
-    environment: production
     timeout-minutes: 180
 
     steps:
@@ -236,7 +235,6 @@ jobs:
     needs: [provision, bench]
     if: always() && needs.provision.result != 'skipped'
     runs-on: ubuntu-latest
-    environment: production
 
     steps:
       - uses: actions/checkout@v4
