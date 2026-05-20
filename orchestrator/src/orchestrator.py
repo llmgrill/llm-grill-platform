@@ -35,7 +35,9 @@ async def handle_queued_run(run_id, gpu_type_required) -> None:
         try:
             instance_id, public_ip = await provision_node(run)
         except (OutOfStockError, ScalewayQuotaError) as exc:
-            reason = "out of stock" if isinstance(exc, OutOfStockError) else "quota exceeded"
+            reason = (
+                "out of stock" if isinstance(exc, OutOfStockError) else "quota exceeded"
+            )
             attempt = await RunRepository.requeue_for_retry(
                 run_id, settings.provision_max_attempts
             )
