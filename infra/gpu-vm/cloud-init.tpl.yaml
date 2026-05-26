@@ -26,6 +26,11 @@ write_files:
     content: |
       ${indent(6, runner_script)}
 
+  - path: /opt/runner/requirements.txt
+    permissions: "0644"
+    content: |
+      ${indent(6, requirements)}
+
   - path: /etc/systemd/system/llmgrill-runner.service
     content: |
       [Unit]
@@ -53,9 +58,9 @@ runcmd:
   - apt-get install -y jq python3-pip python3.12-venv cuda-toolkit-13-0
   - python3 -m venv /opt/venv
   - /opt/venv/bin/pip install --upgrade pip
-  - /opt/venv/bin/pip install "huggingface_hub[cli]" llm-grill
+  - /opt/venv/bin/pip install -r /opt/runner/requirements.txt
 %{ if engine == "vllm" ~}
-  - /opt/venv/bin/pip install vllm
+  - /opt/venv/bin/pip install vllm==0.19.1
 %{ else ~}
   - apt-get install -y git cmake build-essential libcurl4-openssl-dev
   - git clone --depth 1 --branch master https://github.com/ggml-org/llama.cpp /opt/llama.cpp

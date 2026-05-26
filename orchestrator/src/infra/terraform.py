@@ -62,6 +62,7 @@ _REPO_ROOT = _find_repo_root()
 _TERRAFORM_DIR = _REPO_ROOT / "infra" / "gpu-vm"
 _WORKSPACES_DIR = _TERRAFORM_DIR / "workspaces"
 _RUNNER_SCRIPT = _TERRAFORM_DIR / "runner.sh"
+_REQUIREMENTS = _TERRAFORM_DIR / "requirements.txt"
 _SCENARIOS_ROOT = _REPO_ROOT
 
 _INSTANCE_TYPE = {
@@ -98,6 +99,7 @@ async def provision_node(run: Run) -> tuple[str, str]:
             shutil.copy(f, workspace)
         shutil.copy(_TERRAFORM_DIR / "cloud-init.tpl.yaml", workspace)
         shutil.copy(_RUNNER_SCRIPT, workspace)
+        shutil.copy(_REQUIREMENTS, workspace)
 
     await asyncio.to_thread(_stage_workspace)
 
