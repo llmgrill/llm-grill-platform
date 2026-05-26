@@ -12,6 +12,7 @@ from src.models import ACTIVE_RUN_STATUSES, Engine
 from src.repositories.run_repository import RunRepository
 from src.schemas import RunCreate
 from src.services.run_service import RunService
+from src.storage import head_latest_meta
 
 _hf = HfApi()
 
@@ -66,9 +67,7 @@ async def submit(force: bool = False, model_filter: str | None = None) -> dict:
     for entry in entries:
         label = f"{entry.model} [{entry.engine}]"
 
-        if not force and await RunRepository.has_completed_run(
-            entry.model, entry.engine
-        ):
+        if not force and await head_latest_meta(entry.model, Engine(entry.engine)):
             skipped.append(label)
             continue
 

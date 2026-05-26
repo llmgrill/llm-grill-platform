@@ -11,6 +11,7 @@ help:
 lint: setup-dev
 	uv run ruff check . --fix
 	uv run ruff format .
+	make check
 
 .PHONY: check ## 🕵 run check
 check: setup-dev

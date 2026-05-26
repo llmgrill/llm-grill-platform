@@ -269,6 +269,8 @@ class TestRunCompletion:
             "src.services.run_service.upload_results",
             return_value="runs/x/results.jsonl",
         )
+        mocker.patch("src.services.run_service.upload_meta")
+        mocker.patch("src.services.run_service.update_leaderboard_for")
         run_id = await self._create_running_run(client, session_factory)
         mocker.patch(
             "src.services.run_service.aggregate",

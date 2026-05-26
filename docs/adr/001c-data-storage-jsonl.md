@@ -8,7 +8,7 @@
 
 ## Superseded by
 
-Implementation moved to **PostgreSQL (live state, metrics) + Scaleway S3 (`leaderboard.json`)** during Wave 0.5 / Wave 1A. The `results/` JSONL-in-Git design was never wired into the orchestrator: there is no JSONL writer, dedup happens via DB queries (`RunRepository.has_completed_run`), and the frontend (when built) will read `leaderboard.json` straight from S3 — see [`docs/deployment.md`](../deployment.md) and [ADR 001f](001f-aggregation-strategy.md).
+[ADR 001h](001h-s3-dedup-layout.md) — Scaleway S3 is now the source of truth for cross-cycle dedup and the consolidated `leaderboard.json`. Postgres remains only for intra-cycle state (queued/running runs, per-run metrics). The `results/` JSONL-in-Git design was never wired into the orchestrator.
 
 This ADR is retained as historical context for why the JSONL-in-Git option was initially chosen and what its rejected alternatives were. Do not implement against this design.
 

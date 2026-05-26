@@ -6,7 +6,12 @@ from src.aggregation import aggregate
 from src.models import GpuType, Run, RunStatus
 from src.repositories.run_repository import RunRepository
 from src.schemas import RunCreate
-from src.storage import upload_logs, upload_results
+from src.storage import (
+    update_leaderboard_for,
+    upload_logs,
+    upload_meta,
+    upload_results,
+)
 
 _MAX_LOG_BYTES = 5 * 1024 * 1024
 _HALF_LOG_BYTES = 2 * 1024 * 1024  # 2 MB head + 2 MB tail (leaves room for marker)
@@ -46,9 +51,12 @@ class RunService:
             raise HTTPException(status.HTTP_409_CONFLICT, detail="run is not running")
 
         # Upload before committing — if S3 fails, run stays `running` and can be retried.
-        results_url = await upload_results(run_id, results_jsonl)
+        results_url = await upload_results(run, results_jsonl)
         result = aggregate(results_jsonl, run)
-        return await RunRepository.complete_run(run_id, results_url, result)
+        completed = await RunRepository.complete_run(run_id, results_url, result)
+        await upload_meta(completed)
+        await update_leaderboard_for(completed, result)
+        return completed
 
     @staticmethod
     async def attach_logs(run_id: uuid.UUID, body: bytes) -> Run:
@@ -60,7 +68,7 @@ class RunService:
                 f"\n[... truncated middle {len(body) - 2 * _HALF_LOG_BYTES} bytes ...]\n"
             ).encode()
             body = body[:_HALF_LOG_BYTES] + marker + body[-_HALF_LOG_BYTES:]
-        key = await upload_logs(run_id, body)
+        key = await upload_logs(run, body)
         await RunRepository.set_logs_url(run_id, key)
         updated = await RunRepository.get(run_id)
         if updated is None:

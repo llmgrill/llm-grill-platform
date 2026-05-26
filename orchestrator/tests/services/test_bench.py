@@ -21,9 +21,16 @@ def skip_hf_check(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def patch_models(monkeypatch):
-    """Override _load_models per test via the `model_entries` fixture."""
-    pass
+def no_s3_dedup(monkeypatch):
+    """Default: no `latest.meta.json` on S3 — dedup check returns False.
+
+    Tests that exercise the dedup path override via `monkeypatch.setattr`.
+    """
+
+    async def _missing(model: str, engine) -> bool:
+        return False
+
+    monkeypatch.setattr(bench_service, "head_latest_meta", _missing)
 
 
 class TestSubmit:
@@ -98,23 +105,15 @@ class TestSubmit:
         self, session_factory, monkeypatch
     ):
         """
-        Given: A done run for Llama in DB
+        Given: latest.meta.json exists on S3 for Llama/vllm (cross-cycle dedup)
         When: submit() is called without force
-        Then: No new run created
+        Then: No new run created — model is skipped
         """
-        async with session_factory() as session:
-            session.add(
-                Run(
-                    model="meta-llama/Llama-3.1-8B-Instruct",
-                    model_size_b=8,
-                    engine=Engine.vllm,
-                    gpu_type_required=GpuType.L40S,
-                    scenario_path="scenarios/basic_8b.yaml",
-                    status=RunStatus.done,
-                )
-            )
-            await session.commit()
 
+        async def _exists(model: str, engine) -> bool:
+            return True
+
+        monkeypatch.setattr(bench_service, "head_latest_meta", _exists)
         monkeypatch.setattr(
             bench_service,
             "_load_models",
@@ -130,23 +129,15 @@ class TestSubmit:
         self, session_factory, monkeypatch
     ):
         """
-        Given: A done run for Llama in DB
+        Given: latest.meta.json exists on S3 (would normally skip)
         When: submit(force=True) is called
-        Then: A new queued run is created
+        Then: The S3 dedup is bypassed and a new queued run is created
         """
-        async with session_factory() as session:
-            session.add(
-                Run(
-                    model="meta-llama/Llama-3.1-8B-Instruct",
-                    model_size_b=8,
-                    engine=Engine.vllm,
-                    gpu_type_required=GpuType.L40S,
-                    scenario_path="scenarios/basic_8b.yaml",
-                    status=RunStatus.done,
-                )
-            )
-            await session.commit()
 
+        async def _exists(model: str, engine) -> bool:
+            return True
+
+        monkeypatch.setattr(bench_service, "head_latest_meta", _exists)
         monkeypatch.setattr(
             bench_service,
             "_load_models",
@@ -156,11 +147,9 @@ class TestSubmit:
         result = await bench_service.submit(force=True)
 
         assert len(result["submitted"]) == 1
-
         async with session_factory() as session:
             runs = (await session.execute(select(Run))).scalars().all()
-        statuses = {r.status for r in runs}
-        assert RunStatus.queued in statuses
+        assert any(r.status == RunStatus.queued for r in runs)
 
     async def test_should_pass_gguf_file_for_llamacpp(
         self, session_factory, monkeypatch

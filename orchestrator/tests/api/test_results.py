@@ -1,7 +1,7 @@
 """
 Tests for the /results API endpoints and aggregation integration.
 
-Covers: GET /results, GET /results/{run_id}, GET /results/{run_id}/download,
+Covers: GET /results/{run_id}, GET /results/{run_id}/download,
 and POST /runs/{id}/complete with aggregation + storage.
 """
 
@@ -62,26 +62,7 @@ async def _insert_result(session_factory, run_id: uuid.UUID) -> Result:
 
 
 class TestResultsEndpoints:
-    """Tests for GET /results and GET /results/{run_id}."""
-
-    async def test_should_list_all_results(self, client, session_factory):
-        """
-        Should return all stored results.
-
-        Given: One result in DB
-        When: GET /results is called
-        Then: 200 with one result
-        """
-        # Given
-        run_id = await _create_run(session_factory)
-        await _insert_result(session_factory, run_id)
-
-        # When
-        resp = await client.get("/results")
-
-        # Then
-        assert resp.status_code == 200
-        assert len(resp.json()) == 1
+    """Tests for GET /results/{run_id}."""
 
     async def test_should_return_result_by_run_id(self, client, session_factory):
         """
@@ -182,6 +163,8 @@ class TestRunCompleteIntegration:
             "src.services.run_service.upload_results",
             return_value="runs/fake-id/results.jsonl",
         )
+        mocker.patch("src.services.run_service.upload_meta")
+        mocker.patch("src.services.run_service.update_leaderboard_for")
         run_id = await self._create_running_run(client, session_factory)
         fake_result = _make_result(uuid.UUID(run_id))
         mocker.patch("src.services.run_service.aggregate", return_value=fake_result)

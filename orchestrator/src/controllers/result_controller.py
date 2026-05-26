@@ -8,11 +8,6 @@ from src.services.result_service import ResultService
 
 class ResultController:
     @staticmethod
-    async def list_all() -> list[ResultRead]:
-        results = await ResultService.list_all()
-        return [ResultRead.model_validate(r) for r in results]
-
-    @staticmethod
     async def get(run_id: uuid.UUID) -> ResultRead:
         result = await ResultService.get_by_run(run_id)
         if result is None:

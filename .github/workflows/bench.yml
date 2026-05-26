@@ -180,20 +180,6 @@ jobs:
           done
           echo "All runs finished."
 
-      - name: Export leaderboard to S3
-        env:
-          VM_IP: ${{ needs.provision.outputs.vm_ip }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.SCW_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          SCW_BUCKET: ${{ secrets.SCW_BUCKET }}
-          SCW_REGION: ${{ secrets.SCW_REGION }}
-        run: |
-          curl -sf "http://${VM_IP}:8000/leaderboard" > leaderboard.json
-          aws s3 cp leaderboard.json "s3://${SCW_BUCKET}/leaderboard.json" \
-            --endpoint-url "https://s3.${SCW_REGION}.scw.cloud" \
-            --content-type "application/json" \
-            --acl public-read
-
       - name: Fail if any run failed
         env:
           VM_IP: ${{ needs.provision.outputs.vm_ip }}

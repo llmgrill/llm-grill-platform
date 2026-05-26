@@ -48,18 +48,6 @@ class RunRepository:
             return [(r.id, r.gpu_type_required) for r in runs]
 
     @staticmethod
-    async def has_completed_run(model: str, engine: str) -> bool:
-        async with db.AsyncSessionLocal() as session:
-            stmt = select(
-                exists().where(
-                    Run.model == model,
-                    Run.engine == engine,
-                    Run.status == RunStatus.done,
-                )
-            )
-            return bool((await session.execute(stmt)).scalar())
-
-    @staticmethod
     async def has_active_run(model: str, engine: str) -> bool:
         async with db.AsyncSessionLocal() as session:
             stmt = select(

@@ -143,8 +143,9 @@ Trigger: push that touches `orchestrator/models.yaml`, or manual `workflow_dispa
   3. docker compose up         → postgres + migrations + orchestrator
   4. POST /bench               → queue runs
   5. poll /bench/status        → wait for active=0
-  6. GET  /leaderboard         → S3 upload
-  7. terraform destroy         → always (even on failure)
+                                (orchestrator writes leaderboard.json to S3
+                                 incrementally on each run completion)
+  6. terraform destroy         → always (even on failure)
 ```
 
 ---
@@ -164,6 +165,15 @@ Schema per entry:
 ```
 
 Force a full re-bench: trigger `bench` workflow manually with `force=true`.
+
+**Cross-cycle dedup lives on S3.** A model is considered "already benched" if `s3://${SCW_BUCKET}/results/<model-slug>/<engine>/latest.meta.json` exists (slug = `model.replace("/", "__")`). Postgres is ephemeral and not consulted for dedup. To re-bench a single model without `force=true`:
+
+```bash
+aws s3 rm "s3://${SCW_BUCKET}/results/<slug>/<engine>/latest.meta.json" \
+  --endpoint-url "https://s3.${SCW_REGION}.scw.cloud"
+```
+
+`leaderboard.json` is written incrementally by the orchestrator on each successful run completion (no CI export step).
 
 ---
 

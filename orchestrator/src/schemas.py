@@ -85,6 +85,17 @@ class LeaderboardEntry(BaseModel):
     model_config = {"from_attributes": True, "populate_by_name": True}
 
 
+class CompletedRunMeta(BaseModel):
+    """Payload of `latest.meta.json` — the S3 dedup signal for a (model, engine)."""
+
+    run_id: uuid.UUID
+    model: str
+    engine: str
+    scenario: str
+    completed_at: datetime
+    git_sha: str | None = None
+
+
 class NodeCreate(BaseModel):
     id: str
     gpu_type: GpuType

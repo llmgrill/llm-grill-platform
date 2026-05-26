@@ -1,78 +1,58 @@
 """
 Tests for the GET /leaderboard endpoint.
 
-Covers: empty state, grouping by (model, engine, gpu_type),
-most-recent-wins selection, and ordering by total_tokens_per_second.
+The leaderboard is served from `s3://.../leaderboard.json` (written
+incrementally by RunService.complete via storage.update_leaderboard_for).
+These tests mock the S3 fetch — the in-memory cache is invalidated before
+each test to avoid leakage.
 """
 
-import uuid
-from datetime import datetime, timedelta, timezone
+import json
 
 import pytest
 
-from src.models import Engine, GpuType, Result, Run, RunStatus
+from src.services.result_service import ResultService
 
 
-def _make_run(session_factory):
-    async def _inner(**kwargs):
-        defaults = dict(
-            model="meta-llama/Llama-3-8B",
-            model_size_b=8,
-            engine=Engine.vllm,
-            gpu_type_required=GpuType.L40S,
-            scenario_path="scenarios/basic_8b.yaml",
-            status=RunStatus.done,
-        )
-        async with session_factory() as session:
-            run = Run(**{**defaults, **kwargs})
-            session.add(run)
-            await session.commit()
-            return run.id
-
-    return _inner
+@pytest.fixture(autouse=True)
+def reset_leaderboard_cache():
+    """Drop the 60s in-memory cache before and after each test."""
+    ResultService.invalidate_leaderboard_cache()
+    yield
+    ResultService.invalidate_leaderboard_cache()
 
 
-def _make_result(run_id: uuid.UUID, **kwargs) -> Result:
-    defaults = dict(
-        id=uuid.uuid4(),
-        run_id=run_id,
-        model="meta-llama/Llama-3-8B",
-        engine="vllm",
-        gpu_type=GpuType.L40S,
-        scenario="scenarios/basic_8b.yaml",
-        total_requests=100,
-        success_count=99,
-        error_count=1,
-        success_rate=0.99,
-        ttft_mean_s=0.12,
-        ttft_median_s=0.11,
-        ttft_p95_s=0.25,
-        tpot_mean_s=0.03,
-        e2e_mean_s=0.50,
-        e2e_p95_s=0.80,
-        tokens_per_second_mean=45.0,
-        total_tokens_per_second=120.0,
-        requests_per_second=3.5,
-        total_duration_s=28.6,
-    )
-    return Result(**{**defaults, **kwargs})
-
-
-async def _insert(session_factory, result: Result) -> None:
-    async with session_factory() as session:
-        session.add(result)
-        await session.commit()
+def _leaderboard_entry(**overrides) -> dict:
+    base = {
+        "model": "meta-llama/Llama-3-8B",
+        "engine": "vllm",
+        "gpu_type": "L40S",
+        "tokens_per_second_mean": 45.0,
+        "total_tokens_per_second": 120.0,
+        "requests_per_second": 3.5,
+        "e2e_p95_s": 0.80,
+        "ttft_p95_s": 0.25,
+        "success_rate": 0.99,
+        "run_id": "00000000-0000-0000-0000-000000000001",
+        "measured_at": "2026-05-20T10:00:00+00:00",
+    }
+    return {**base, **overrides}
 
 
 class TestLeaderboard:
-    async def test_should_return_empty_list_when_no_results(self, client):
-        """
-        Should return an empty list when no benchmark results exist.
+    """GET /leaderboard reads the consolidated JSON from S3."""
 
-        Given: Empty DB
-        When: GET /leaderboard is called
-        Then: 200 with empty list
+    async def test_should_return_empty_list_when_no_leaderboard_on_s3(
+        self, client, mocker
+    ):
         """
+        Given: leaderboard.json does not exist on S3 (fetch returns None)
+        When:  GET /leaderboard is called
+        Then:  200 with []
+        """
+        # Given
+        mocker.patch("src.services.result_service.fetch_leaderboard", return_value=None)
+
         # When
         resp = await client.get("/leaderboard")
 
@@ -80,103 +60,25 @@ class TestLeaderboard:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    async def test_should_return_one_entry_per_model_engine_gpu_group(
-        self, client, session_factory
-    ):
+    async def test_should_return_entries_from_s3_payload(self, client, mocker):
         """
-        Should deduplicate to one entry per (model, engine, gpu_type) group.
-
-        Given: Two results for the same (model, engine, gpu_type)
-        When: GET /leaderboard is called
-        Then: Only one entry returned
+        Given: leaderboard.json on S3 holds two entries for distinct models
+        When:  GET /leaderboard is called
+        Then:  Both entries are returned with the same field values
         """
         # Given
-        create_run = _make_run(session_factory)
-        run_id_1 = await create_run()
-        run_id_2 = await create_run()
-        now = datetime.now(timezone.utc)
-        await _insert(
-            session_factory, _make_result(run_id_1, created_at=now - timedelta(hours=2))
-        )
-        await _insert(session_factory, _make_result(run_id_2, created_at=now))
-
-        # When
-        resp = await client.get("/leaderboard")
-
-        # Then
-        assert resp.status_code == 200
-        assert len(resp.json()) == 1
-
-    async def test_should_return_most_recent_result_when_multiple_runs(
-        self, client, session_factory
-    ):
-        """
-        Should select the most recent result when multiple runs exist for the same group.
-
-        Given: Two results for the same group, one older with higher throughput
-        When: GET /leaderboard is called
-        Then: The most recent result is returned (not the highest throughput)
-        """
-        # Given
-        create_run = _make_run(session_factory)
-        run_id_old = await create_run()
-        run_id_new = await create_run()
-        now = datetime.now(timezone.utc)
-        await _insert(
-            session_factory,
-            _make_result(
-                run_id_old,
-                total_tokens_per_second=999.0,
-                created_at=now - timedelta(hours=5),
-            ),
-        )
-        await _insert(
-            session_factory,
-            _make_result(
-                run_id_new,
-                total_tokens_per_second=50.0,
-                created_at=now,
-            ),
-        )
-
-        # When
-        resp = await client.get("/leaderboard")
-
-        # Then
-        assert resp.status_code == 200
-        assert len(resp.json()) == 1
-        assert resp.json()[0]["total_tokens_per_second"] == pytest.approx(50.0)
-        assert resp.json()[0]["run_id"] == str(run_id_new)
-
-    async def test_should_sort_by_total_tokens_per_second_descending(
-        self, client, session_factory
-    ):
-        """
-        Should return entries sorted by total_tokens_per_second descending.
-
-        Given: Two results for different models with different throughput
-        When: GET /leaderboard is called
-        Then: Higher throughput appears first
-        """
-        # Given
-        create_run = _make_run(session_factory)
-        run_id_fast = await create_run(model="mistralai/Mistral-7B-v0.1")
-        run_id_slow = await create_run(model="meta-llama/Llama-3-8B")
-        await _insert(
-            session_factory,
-            _make_result(
-                run_id_fast,
-                model="mistralai/Mistral-7B-v0.1",
-                total_tokens_per_second=200.0,
-            ),
-        )
-        await _insert(
-            session_factory,
-            _make_result(
-                run_id_slow,
-                model="meta-llama/Llama-3-8B",
-                total_tokens_per_second=80.0,
-            ),
+        payload = json.dumps(
+            [
+                _leaderboard_entry(
+                    model="mistralai/Mistral-7B-v0.1",
+                    total_tokens_per_second=200.0,
+                    run_id="00000000-0000-0000-0000-000000000002",
+                ),
+                _leaderboard_entry(total_tokens_per_second=80.0),
+            ]
+        ).encode()
+        mocker.patch(
+            "src.services.result_service.fetch_leaderboard", return_value=payload
         )
 
         # When
@@ -185,40 +87,53 @@ class TestLeaderboard:
         # Then
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 2
-        assert data[0]["model"] == "mistralai/Mistral-7B-v0.1"
-        assert data[1]["model"] == "meta-llama/Llama-3-8B"
+        assert {e["model"] for e in data} == {
+            "mistralai/Mistral-7B-v0.1",
+            "meta-llama/Llama-3-8B",
+        }
+        assert any(e["total_tokens_per_second"] == pytest.approx(200.0) for e in data)
 
-    async def test_should_group_separately_by_gpu_type(self, client, session_factory):
+    async def test_should_serve_from_cache_within_ttl(self, client, mocker):
         """
-        Should return one entry per GPU type for the same model+engine.
-
-        Given: Same model/engine benchmarked on L40S and H100
-        When: GET /leaderboard is called
-        Then: Two entries returned, one per GPU
+        Given: A first request that fetched leaderboard.json from S3
+        When:  A second request hits within the 60s TTL
+        Then:  fetch_leaderboard is only called once (the second hit is cached)
         """
         # Given
-        create_run = _make_run(session_factory)
-        run_l40s = await create_run(gpu_type_required=GpuType.L40S)
-        run_h100 = await create_run(gpu_type_required=GpuType.H100)
-        await _insert(
-            session_factory,
-            _make_result(
-                run_l40s, gpu_type=GpuType.L40S, total_tokens_per_second=120.0
-            ),
-        )
-        await _insert(
-            session_factory,
-            _make_result(
-                run_h100, gpu_type=GpuType.H100, total_tokens_per_second=180.0
-            ),
+        payload = json.dumps([_leaderboard_entry()]).encode()
+        fetch_mock = mocker.patch(
+            "src.services.result_service.fetch_leaderboard", return_value=payload
         )
 
         # When
-        resp = await client.get("/leaderboard")
+        await client.get("/leaderboard")
+        await client.get("/leaderboard")
 
         # Then
-        assert resp.status_code == 200
-        assert len(resp.json()) == 2
-        gpus = {e["gpu_type"] for e in resp.json()}
-        assert gpus == {"L40S", "H100"}
+        assert fetch_mock.call_count == 1
+
+    async def test_should_refetch_after_ttl_expires(self, client, mocker):
+        """
+        Given: A first request cached leaderboard.json
+        When:  A second request hits just past the 60s TTL (clock advanced)
+        Then:  fetch_leaderboard is called again (cache considered stale)
+        """
+        # Given
+        import src.services.result_service as rs
+
+        payload = json.dumps([_leaderboard_entry()]).encode()
+        fetch_mock = mocker.patch(
+            "src.services.result_service.fetch_leaderboard", return_value=payload
+        )
+
+        # When: first call caches; we then age the cache past the TTL window
+        # (cheaper and safer than patching the global time.monotonic, which
+        # asyncio also consumes).
+        await client.get("/leaderboard")
+        assert rs._leaderboard_cache is not None
+        cached_at, entries = rs._leaderboard_cache
+        rs._leaderboard_cache = (cached_at - rs._LEADERBOARD_TTL_SECONDS - 1, entries)
+        await client.get("/leaderboard")
+
+        # Then
+        assert fetch_mock.call_count == 2

@@ -7,6 +7,7 @@ from fastapi.responses import PlainTextResponse
 from src.auth import require_api_key
 from src.controllers.run_controller import RunController
 from src.models import RunStatus
+from src.repositories.run_repository import RunRepository
 from src.schemas import RunComplete, RunCreate, RunFail, RunRead
 from src.storage import fetch_logs
 
@@ -63,7 +64,10 @@ async def attach_run_logs(run_id: uuid.UUID, request: Request):
 
 @router.get("/{run_id}/logs", response_class=PlainTextResponse)
 async def get_run_logs(run_id: uuid.UUID):
-    content = await fetch_logs(run_id)
+    run = await RunRepository.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    content = await fetch_logs(run)
     if content is None:
         raise HTTPException(status_code=404, detail="no logs uploaded for this run")
     return content.decode("utf-8", errors="replace")

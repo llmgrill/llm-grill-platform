@@ -13,6 +13,17 @@ resource "scaleway_object_bucket" "results" {
   lifecycle {
     prevent_destroy = true
   }
+
+  versioning {
+    enabled = true
+  }
+
+  cors_rule {
+    allowed_methods = ["GET", "HEAD"]
+    allowed_origins = ["*"]
+    allowed_headers = ["*"]
+    max_age_seconds = 3600
+  }
 }
 
 # ── Security group ────────────────────────────────────────────────────────────
