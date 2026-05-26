@@ -111,6 +111,44 @@ class TestBuildScenariosCatalog:
         """
         assert build_scenarios_catalog(tmp_path) == []
 
+    def test_should_take_max_tokens_from_first_model_that_declares_it(self, tmp_path):
+        """
+        Should scan models in order and return the first declared max_tokens,
+        skipping earlier entries that omit the key.
+
+        Given: a scenario whose first model has no max_tokens, second has 512
+        When: the scenarios catalog is built
+        Then: max_tokens is 512 (the first one that actually declares it)
+        """
+        (tmp_path / "scenarios").mkdir()
+        (tmp_path / "scenarios" / "ramp.yaml").write_text(
+            "name: ramp\n"
+            "models:\n"
+            "  - name: no-cap\n"
+            "  - name: capped\n    max_tokens: 512\n"
+        )
+
+        catalog = build_scenarios_catalog(tmp_path)
+
+        assert catalog[0]["max_tokens"] == 512
+
+    def test_should_have_null_max_tokens_when_no_model_declares_it(self, tmp_path):
+        """
+        Should return null max_tokens (not crash) when no model carries the key.
+
+        Given: a scenario whose only model omits max_tokens
+        When: the scenarios catalog is built
+        Then: max_tokens is None
+        """
+        (tmp_path / "scenarios").mkdir()
+        (tmp_path / "scenarios" / "ramp.yaml").write_text(
+            "name: ramp\nmodels:\n  - name: uncapped\n"
+        )
+
+        catalog = build_scenarios_catalog(tmp_path)
+
+        assert catalog[0]["max_tokens"] is None
+
     def test_should_skip_malformed_scenario_keep_valid_ones(self, tmp_path):
         """
         Given: one valid scenario and one with a top-level list (not a mapping)

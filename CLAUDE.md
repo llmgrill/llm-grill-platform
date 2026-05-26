@@ -216,6 +216,25 @@ orchestrator/tests/
 - Use `pytest-mock` (`mocker`), not `unittest.mock`.
 - Async tests via `pytest-asyncio` in auto mode.
 
+### Mutation testing (ad-hoc, not in CI)
+
+[`ordeal`](https://github.com/teilomillet/ordeal) finds assertions that coverage misses:
+a surviving mutant means "a test still passes when this line is wrong". Run it
+occasionally on the **pure-logic** modules, where the signal is reliable:
+
+```bash
+cd orchestrator
+API_KEY=test-key uvx ordeal mutate src.catalog src.aggregation \
+  -k "catalog or aggregation" --preset standard -w 4
+```
+
+- `API_KEY` must be set: ordeal imports the module before `conftest.py` runs.
+- **Skip the DB/async repositories** (`src.repositories.*`, parts of
+  `src.orchestrator`): ordeal mutates in-memory but re-runs pytest in a
+  subprocess that re-imports the unmutated source, so it reports false
+  "survivors" there even when the behaviour is fully tested.
+- Not committed to the lockfile — invoke via `uvx` on demand.
+
 ---
 
 ## Code conventions
