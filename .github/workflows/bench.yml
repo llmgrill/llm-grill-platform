@@ -19,7 +19,6 @@ jobs:
   # ── 0. Preflight: is there anything to bench? (S3 dedup, no VM/GPU) ──────────
   preflight:
     runs-on: ubuntu-latest
-    environment: production
     outputs:
       pending: ${{ steps.count.outputs.pending }}
     defaults:
