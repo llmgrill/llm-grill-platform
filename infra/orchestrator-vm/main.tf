@@ -24,6 +24,12 @@ resource "scaleway_object_bucket" "results" {
     allowed_headers = ["*"]
     max_age_seconds = 3600
   }
+
+  lifecycle_rule {
+    id                                     = "expire-noncurrent"
+    enabled                                = true
+    abort_incomplete_multipart_upload_days = 0
+  }
 }
 
 # ── Security group ────────────────────────────────────────────────────────────

@@ -168,6 +168,9 @@ class TestRunCompleteIntegration:
         run_id = await self._create_running_run(client, session_factory)
         fake_result = _make_result(uuid.UUID(run_id))
         mocker.patch("src.services.run_service.aggregate", return_value=fake_result)
+        mocker.patch(
+            "src.services.run_service.aggregate_per_concurrency", return_value=[]
+        )
 
         # When
         resp = await client.post(

@@ -4,6 +4,17 @@ from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _find_repo_root() -> Path:
+    """Ancestor holding infra/gpu-vm/runner.sh — repo root in dev and /app in Docker.
+
+    Mirrors infra.terraform._find_repo_root; scenarios/ lives at this root.
+    """
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "infra" / "gpu-vm" / "runner.sh").is_file():
+            return parent
+    return Path(__file__).resolve().parents[2]
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -48,6 +59,8 @@ class Settings(BaseSettings):
 
     # Model list (deployed alongside the orchestrator)
     models_file: Path = Path(__file__).resolve().parents[1] / "models.yaml"
+    # Repo root holding scenarios/ (scenario_path values are relative to it).
+    scenarios_root: Path = _find_repo_root()
 
     @field_validator("api_key")
     @classmethod

@@ -173,7 +173,19 @@ aws s3 rm "s3://${SCW_BUCKET}/results/<slug>/<engine>/latest.meta.json" \
   --endpoint-url "https://s3.${SCW_REGION}.scw.cloud"
 ```
 
-`leaderboard.json` is written incrementally by the orchestrator on each successful run completion (no CI export step).
+### Public S3 artifacts (consumed by the static frontend)
+
+The orchestrator publishes three public-read JSON files at the bucket root. The front never reads `models.yaml` / `scenarios/*.yaml` directly — it fetches these. See `docs/frontend-plan.md § Data contract` for the full shapes.
+
+| File | Written by | When |
+|---|---|---|
+| `leaderboard.json` | `storage.update_leaderboard_for` | incrementally on each successful run completion |
+| `models.json` | `storage.upload_models_catalog` | on each `POST /bench`, derived from `models.yaml` |
+| `scenarios.json` | `storage.upload_scenarios_catalog` | on each `POST /bench`, derived from all `scenarios/*.yaml` |
+
+- `leaderboard.json` rows carry per-`(model, engine)` aggregates **plus** a `per_concurrency` breakdown (TTFT/TPOT/throughput per ramp level — the load curve, not just the collapsed mean).
+- `models.json` is fully **derived** (no editorial fields hand-maintained in `models.yaml`): `brand` = HF org, `params_b` = `size_b`, `quantization` parsed from `gguf_file` (or `null`).
+- `scenarios.json` is **directory-discovered**: drop a new `scenarios/*.yaml` and it surfaces on the next bench, no code change.
 
 ---
 

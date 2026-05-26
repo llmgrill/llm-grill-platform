@@ -1,4 +1,5 @@
 import asyncio
+import json
 from typing import Literal
 
 import yaml
@@ -7,12 +8,17 @@ from huggingface_hub import HfApi
 from huggingface_hub.utils import RepositoryNotFoundError
 from pydantic import BaseModel, field_validator
 
+from src.catalog import build_models_catalog, build_scenarios_catalog
 from src.config import settings
 from src.models import ACTIVE_RUN_STATUSES, Engine
 from src.repositories.run_repository import RunRepository
 from src.schemas import RunCreate
 from src.services.run_service import RunService
-from src.storage import head_latest_meta
+from src.storage import (
+    head_latest_meta,
+    upload_models_catalog,
+    upload_scenarios_catalog,
+)
 
 _hf = HfApi()
 
@@ -50,8 +56,22 @@ async def _check_hf_exists(model_id: str) -> None:
         )
 
 
+async def _publish_catalogs(entries: list[ModelEntry]) -> None:
+    """Publish derived models.json + scenarios.json for the static frontend.
+
+    Derived from the full model list (ignores any `model_filter`) so the
+    catalogs always describe every benchmarked model, not just the subset
+    submitted this call.
+    """
+    await upload_models_catalog(json.dumps(build_models_catalog(entries)))
+    await upload_scenarios_catalog(
+        json.dumps(build_scenarios_catalog(settings.scenarios_root))
+    )
+
+
 async def submit(force: bool = False, model_filter: str | None = None) -> dict:
     entries = _load_models()
+    await _publish_catalogs(entries)
 
     if model_filter:
         entries = [e for e in entries if model_filter.lower() in e.model.lower()]

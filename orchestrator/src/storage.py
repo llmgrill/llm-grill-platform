@@ -16,6 +16,8 @@ from src.schemas import CompletedRunMeta
 _SCW_ENDPOINT = f"https://s3.{settings.scw_region}.scw.cloud"
 
 _LEADERBOARD_KEY = "leaderboard.json"
+_MODELS_KEY = "models.json"
+_SCENARIOS_KEY = "scenarios.json"
 
 # Error codes S3 (AWS or Scaleway) returns for a missing object. head_object
 # yields "404"/"NotFound" (no modeled exception), get_object yields "NoSuchKey".
@@ -194,7 +196,9 @@ async def upload_logs(run: Run, content: bytes) -> str:
     return key
 
 
-async def update_leaderboard_for(run: Run, result: Result) -> None:
+async def update_leaderboard_for(
+    run: Run, result: Result, per_concurrency: list[dict] | None = None
+) -> None:
     """Upsert one (model, engine) entry in leaderboard.json on S3.
 
     Reads the current leaderboard, drops any stale entry for this
@@ -222,9 +226,15 @@ async def update_leaderboard_for(run: Run, result: Result) -> None:
             "tokens_per_second_mean": result.tokens_per_second_mean,
             "total_tokens_per_second": result.total_tokens_per_second,
             "requests_per_second": result.requests_per_second,
-            "e2e_p95_s": result.e2e_p95_s,
+            "n_requests": result.total_requests,
+            "ttft_mean_s": result.ttft_mean_s,
+            "ttft_median_s": result.ttft_median_s,
             "ttft_p95_s": result.ttft_p95_s,
+            "tpot_mean_s": result.tpot_mean_s,
+            "e2e_mean_s": result.e2e_mean_s,
+            "e2e_p95_s": result.e2e_p95_s,
             "success_rate": result.success_rate,
+            "per_concurrency": per_concurrency or [],
             "run_id": str(run.id),
             "measured_at": (run.ended_at or datetime.now(timezone.utc)).isoformat(),
         }
@@ -232,22 +242,37 @@ async def update_leaderboard_for(run: Run, result: Result) -> None:
     await upload_leaderboard(json.dumps(entries))
 
 
-async def upload_leaderboard(payload: str) -> str:
-    """Write the consolidated leaderboard.json at the bucket root.
+async def _upload_public_json(key: str, payload: str) -> str:
+    """Write a public-read JSON object at the bucket root.
 
-    Marked public-read so the static frontend can fetch it directly from S3
-    without going through the orchestrator (see docs/frontend-plan.md).
+    Public so the static frontend can fetch it directly from S3 without going
+    through the orchestrator (see docs/frontend-plan.md).
     """
     client = _client()
     await asyncio.to_thread(
         client.put_object,
         Bucket=settings.scw_bucket,
-        Key=_LEADERBOARD_KEY,
+        Key=key,
         Body=payload.encode(),
         ContentType="application/json",
         ACL="public-read",
     )
-    return _LEADERBOARD_KEY
+    return key
+
+
+async def upload_leaderboard(payload: str) -> str:
+    """Write the consolidated leaderboard.json at the bucket root."""
+    return await _upload_public_json(_LEADERBOARD_KEY, payload)
+
+
+async def upload_models_catalog(payload: str) -> str:
+    """Write the derived models.json (editorial metadata) at the bucket root."""
+    return await _upload_public_json(_MODELS_KEY, payload)
+
+
+async def upload_scenarios_catalog(payload: str) -> str:
+    """Write the derived scenarios.json (load shapes) at the bucket root."""
+    return await _upload_public_json(_SCENARIOS_KEY, payload)
 
 
 async def fetch_leaderboard() -> bytes | None:

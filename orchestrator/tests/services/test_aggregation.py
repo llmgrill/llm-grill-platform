@@ -8,9 +8,31 @@ import uuid
 from unittest.mock import MagicMock
 
 import pytest
+from llm_grill.metrics import RequestMetrics
 
-from src.aggregation import aggregate
+from src.aggregation import aggregate, aggregate_per_concurrency
 from src.models import Engine, GpuType, Result, Run
+
+
+def _req(level: int, ttft: float) -> RequestMetrics:
+    return RequestMetrics(
+        scenario="scenarios/ramp.yaml",
+        target_server="local",
+        target_model="m",
+        conversation="basic-prompt",
+        turn=0,
+        iteration=0,
+        user_id=0,
+        timestamp_start="2026-05-22T14:00:00Z",
+        ttft_s=ttft,
+        tpot_s=0.01,
+        e2e_latency_s=ttft + 1.0,
+        prompt_tokens=41,
+        completion_tokens=109,
+        tokens_per_second=50.0,
+        success=True,
+        concurrent_users_level=level,
+    )
 
 
 def _make_run() -> Run:
@@ -129,3 +151,45 @@ class TestAggregate:
         mock_duration.assert_not_called()
         mock_agg.assert_called_once_with([], 0.0)
         assert result.total_duration_s == 0.0
+
+
+class TestAggregatePerConcurrency:
+    """Tests for aggregate_per_concurrency() — breakdown by concurrency level."""
+
+    def test_should_group_by_concurrency_level_sorted(self):
+        """
+        Given: raw metrics spanning concurrency levels 1, 4 (out of order)
+        When: aggregate_per_concurrency is called
+        Then: one entry per level, sorted ascending, each with its own n_requests
+        """
+        # Given
+        jsonl = "\n".join(
+            r.model_dump_json()
+            for r in [_req(4, 0.20), _req(1, 0.05), _req(4, 0.22), _req(1, 0.04)]
+        )
+
+        # When
+        breakdown = aggregate_per_concurrency(jsonl)
+
+        # Then
+        assert [e["concurrency"] for e in breakdown] == [1, 4]
+        assert [e["n_requests"] for e in breakdown] == [2, 2]
+        assert set(breakdown[0]) == {
+            "concurrency",
+            "n_requests",
+            "success_rate",
+            "ttft_mean_s",
+            "ttft_p95_s",
+            "tpot_mean_s",
+            "e2e_mean_s",
+            "e2e_p95_s",
+            "tokens_per_second_mean",
+        }
+
+    def test_should_return_empty_list_for_empty_input(self):
+        """
+        Given: empty JSONL
+        When: aggregate_per_concurrency is called
+        Then: an empty list is returned (no groups)
+        """
+        assert aggregate_per_concurrency("") == []

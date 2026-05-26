@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import HTTPException, status
 
-from src.aggregation import aggregate
+from src.aggregation import aggregate, aggregate_per_concurrency
 from src.models import GpuType, Run, RunStatus
 from src.repositories.run_repository import RunRepository
 from src.schemas import RunCreate
@@ -53,9 +53,10 @@ class RunService:
         # Upload before committing — if S3 fails, run stays `running` and can be retried.
         results_url = await upload_results(run, results_jsonl)
         result = aggregate(results_jsonl, run)
+        per_concurrency = aggregate_per_concurrency(results_jsonl)
         completed = await RunRepository.complete_run(run_id, results_url, result)
         await upload_meta(completed)
-        await update_leaderboard_for(completed, result)
+        await update_leaderboard_for(completed, result, per_concurrency)
         return completed
 
     @staticmethod

@@ -276,6 +276,9 @@ class TestRunCompletion:
             "src.services.run_service.aggregate",
             return_value=_make_result(uuid.UUID(run_id)),
         )
+        mocker.patch(
+            "src.services.run_service.aggregate_per_concurrency", return_value=[]
+        )
 
         # When
         resp = await client.post(

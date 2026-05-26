@@ -33,6 +33,17 @@ def no_s3_dedup(monkeypatch):
     monkeypatch.setattr(bench_service, "head_latest_meta", _missing)
 
 
+@pytest.fixture(autouse=True)
+def no_s3_catalog(monkeypatch):
+    """Stub the public catalog uploads (models.json / scenarios.json) — no S3."""
+
+    async def _noop(payload: str) -> str:
+        return "stub"
+
+    monkeypatch.setattr(bench_service, "upload_models_catalog", _noop)
+    monkeypatch.setattr(bench_service, "upload_scenarios_catalog", _noop)
+
+
 class TestSubmit:
     async def test_should_create_runs_for_all_models(
         self, session_factory, monkeypatch
