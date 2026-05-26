@@ -1,0 +1,2 @@
+huggingface_hub==1.16.1
+llm-grill==0.1.4

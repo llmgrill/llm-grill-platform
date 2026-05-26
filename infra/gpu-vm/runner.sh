@@ -47,7 +47,15 @@ fail() {
   exit 1
 }
 
-trap 'fail "unexpected error on line $LINENO"' ERR
+on_err() {
+  trap - ERR  # avoid re-entry while reporting
+  local line=$1 cmd=$2 code=$3 context
+  context=$(tail -n 20 "$LOG_FILE" 2>/dev/null)
+  fail "line ${line}: \`${cmd}\` failed (exit ${code})
+--- last log lines ---
+${context}"
+}
+trap 'on_err "$LINENO" "$BASH_COMMAND" "$?"' ERR
 
 # Run params are injected via cloud-init into /etc/llmgrill/env (MODEL, ENGINE,
 # SCENARIO, GGUF_FILE). No round-trip to the orchestrator is needed at startup.

@@ -34,6 +34,7 @@ resource "scaleway_instance_server" "gpu" {
       gguf_file            = var.gguf_file
       scenario_content     = var.scenario_content
       runner_script        = file("${path.module}/runner.sh")
+      requirements         = file("${path.module}/requirements.txt")
     })
   }
 }
