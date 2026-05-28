@@ -45,18 +45,16 @@ export const SELECTABLE_METRICS = METRICS.filter((m) => !m.trailsOnly);
 
 export const CONCURRENCY_LEVELS = [1, 4, 8, 16, 32, 64];
 
-/** Known VRAM per GPU type, for the tooltip/hardware label. */
-export const GPU_VRAM_GB: Record<string, number> = { L40S: 48, H100: 80 };
-
 /** Latency formatter: sub-second in ms, else seconds. */
 export function fmtMs(seconds: number): string {
 	return seconds < 1 ? `${(seconds * 1000).toFixed(0)} ms` : `${seconds.toFixed(2)} s`;
 }
 
-/** Axis tick formatter (values already in the row's display units). */
+/** Axis tick formatter (values already in the row's display units).
+ *  Latencies stay in ms end-to-end (matching the metric `unit` and flattenPoint),
+ *  so large values collapse to the generic "k" suffix rather than a stray "s". */
 export function formatTick(v: number, key: string): string {
 	if (key === 'success_rate') return `${(v * 100).toFixed(0)}%`;
-	if (key === 'e2e_mean' || key === 'e2e_p95') return `${(v / 1000).toFixed(1)}s`;
 	if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}k`;
 	if (Number.isInteger(v) || Math.abs(v) >= 10) return v.toFixed(0);
 	return v.toFixed(1);

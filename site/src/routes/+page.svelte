@@ -6,7 +6,7 @@
 	import Scatter from '$lib/components/Scatter.svelte';
 	import Tooltip from '$lib/components/Tooltip.svelte';
 	import Footer from '$lib/components/Footer.svelte';
-	import { fetchCatalogs, buildView, engineSub, type Catalogs } from '$lib/data';
+	import { fetchCatalogs, buildView, engineSub, engineGpu, type Catalogs } from '$lib/data';
 	import type { MetricKey } from '$lib/metrics';
 	import type { ConcurrencyLevel, ViewRow } from '$lib/types';
 
@@ -82,13 +82,22 @@
 	// enum) — no hardcoded vllm/llamacpp here. Subtitle (GPU/quant) is derived per group
 	// from the actual rows, since the backend doesn't know the GPU until runs complete.
 	const engineGroups = $derived(
-		(catalogs?.engines ?? []).map((e) => ({
-			engine: e.id,
-			label: e.label,
-			rows: filtered.filter((r) => r.engine === e.id),
-			sub: engineSub(view.filter((r) => r.engine === e.id))
-		}))
+		(catalogs?.engines ?? []).map((e) => {
+			const engineRows = view.filter((r) => r.engine === e.id);
+			return {
+				engine: e.id,
+				label: e.label,
+				rows: filtered.filter((r) => r.engine === e.id),
+				sub: engineSub(engineRows),
+				gpu: engineGpu(engineRows)
+			};
+		})
 	);
+
+	// Header stats are fully derived: the backend count and per-engine GPU come from
+	// engines.json + observed leaderboard rows, so a new engine/hardware surfaces with
+	// no frontend change. GPU is empty until that engine has completed runs.
+	const headerEngines = $derived(engineGroups.map((g) => ({ label: g.label, gpu: g.gpu })));
 
 	// One column per engine (capped at 3 so charts stay legible), sized from the
 	// observed container width.
@@ -133,7 +142,7 @@
 </script>
 
 <div class="app">
-	<Header {totalModels} />
+	<Header {totalModels} engines={headerEngines} />
 
 	{#if error}
 		<div class="status status-err">failed to load benchmark data — {error}</div>

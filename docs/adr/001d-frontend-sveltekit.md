@@ -81,7 +81,7 @@ single-page scatter dashboard (`site/`). The SvelteKit + adapter-static base hol
   abstraction without removing the real work. `d3-scale` covers linear scales + nice
   ticks; the rest is Svelte SVG (≈1:1 port of the React components).
 - **Deployment: Cloudflare Pages, not GitHub Pages.** `wrangler pages deploy build`
-  from `.github/workflows/deploy-frontend.yml`, triggered on `site/**` pushes and on a
+  from `.github/workflows/deploy-site.yml`, triggered on `site/**` pushes and on a
   successful `bench` run. Data is fetched at runtime from the public S3 JSON
   (`VITE_DATA_BASE_URL`).
 - **No Tailwind.** The mockup is plain CSS driven by custom properties; ported verbatim

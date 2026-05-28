@@ -1,7 +1,6 @@
 // Data layer: fetch the three public JSON files and merge them into the flat
 // ViewRow shape the scatter consumes. Mirrors the mockup's buildView(), adapted
 // to the real (flat) leaderboard rows produced by storage.update_leaderboard_for.
-import { GPU_VRAM_GB } from './metrics';
 import type {
 	ConcurrencyLevel,
 	ConcurrencyPoint,
@@ -30,18 +29,45 @@ async function getJson<T>(file: string): Promise<T> {
 	return (await res.json()) as T;
 }
 
+/** Tolerant fetch for non-essential catalogs: a missing/unavailable file degrades to
+ *  `fallback` instead of failing the whole page load. */
+async function getJsonOptional<T>(file: string, fallback: T): Promise<T> {
+	try {
+		return await getJson<T>(file);
+	} catch {
+		return fallback;
+	}
+}
+
+/** Engines derived from the leaderboard when engines.json is unavailable: distinct
+ *  engine ids in first-seen order, labelled by their raw id (no curated display name). */
+function enginesFromLeaderboard(leaderboard: LeaderboardRow[]): EngineMeta[] {
+	const ids = [...new Set(leaderboard.map((r) => r.engine))];
+	return ids.map((id) => ({ id, label: id }));
+}
+
 export async function fetchCatalogs(): Promise<Catalogs> {
-	const [leaderboard, models, scenarios, engines] = await Promise.all([
+	// leaderboard + models are essential — a failure here is a real page-load error.
+	const [leaderboard, models] = await Promise.all([
 		getJson<LeaderboardRow[]>('leaderboard.json'),
-		getJson<ModelMeta[]>('models.json'),
-		getJson<Scenario[]>('scenarios.json'),
-		getJson<EngineMeta[]>('engines.json')
+		getJson<ModelMeta[]>('models.json')
 	]);
-	return { leaderboard, models, scenarios, engines };
+	// engines + scenarios are decorative/ordering aids: degrade gracefully so the
+	// dashboard stays usable with partial data.
+	const [scenarios, engines] = await Promise.all([
+		getJsonOptional<Scenario[]>('scenarios.json', []),
+		getJsonOptional<EngineMeta[]>('engines.json', [])
+	]);
+	return {
+		leaderboard,
+		models,
+		scenarios,
+		engines: engines.length ? engines : enginesFromLeaderboard(leaderboard)
+	};
 }
 
 function hardwareFor(gpuType: string): Hardware {
-	return { label: `1×${gpuType}`, type: gpuType, vram_gb: GPU_VRAM_GB[gpuType] ?? null };
+	return { label: `1×${gpuType}`, type: gpuType };
 }
 
 /** Synthesize a point from the row's flat top-level aggregate metrics. */
@@ -123,12 +149,19 @@ export function buildView(
 	});
 }
 
+/** GPU summary for an engine's rows, derived (never hardcoded): a single type when
+ *  uniform (e.g. "H100"), "N GPU types" when mixed, or "" when no runs landed yet. */
+export function engineGpu(rows: ViewRow[]): string {
+	const gpus = [...new Set(rows.map((r) => r.hardware.type).filter(Boolean))];
+	return gpus.length === 1 ? gpus[0] : gpus.length > 1 ? `${gpus.length} GPU types` : '';
+}
+
 /** Subtitle for an engine column, derived from its rows (no hardcoded GPU/quant).
  *  e.g. "1×L40S · Q4_K_M", "1×H100", or "" when nothing is known. */
 export function engineSub(rows: ViewRow[]): string {
-	const gpus = [...new Set(rows.map((r) => r.hardware.type).filter(Boolean))];
+	const gpu = engineGpu(rows);
 	const quants = [...new Set(rows.map((r) => r.quantization).filter((q): q is string => !!q))];
-	const gpuPart = gpus.length === 1 ? `1×${gpus[0]}` : gpus.length > 1 ? `${gpus.length} GPU types` : '';
+	const gpuPart = gpu && !gpu.includes('types') ? `1×${gpu}` : gpu;
 	const quantPart = quants.length === 1 ? quants[0] : '';
 	return [gpuPart, quantPart].filter(Boolean).join(' · ');
 }

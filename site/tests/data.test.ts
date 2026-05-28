@@ -124,7 +124,7 @@ describe('buildView', () => {
 
 describe('engineSub', () => {
 	const vr = (over: Partial<ViewRow>): ViewRow =>
-		({ hardware: { label: '', type: 'L40S', vram_gb: 48 }, quantization: null, ...over }) as ViewRow;
+		({ hardware: { label: '', type: 'L40S' }, quantization: null, ...over }) as ViewRow;
 
 	it('shows a single GPU type', () => {
 		expect(engineSub([vr({}), vr({})])).toBe('1×L40S');
@@ -137,7 +137,7 @@ describe('engineSub', () => {
 	});
 
 	it('summarises mixed GPU types instead of lying', () => {
-		const h100 = vr({ hardware: { label: '', type: 'H100', vram_gb: 80 } });
+		const h100 = vr({ hardware: { label: '', type: 'H100' } });
 		expect(engineSub([vr({}), h100])).toBe('2 GPU types');
 	});
 

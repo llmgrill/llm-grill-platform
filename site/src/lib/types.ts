@@ -66,7 +66,6 @@ export interface Scenario {
 export interface Hardware {
 	label: string;
 	type: string;
-	vram_gb: number | null;
 }
 
 /** Flattened row consumed by the scatter — metrics in the units the chart expects

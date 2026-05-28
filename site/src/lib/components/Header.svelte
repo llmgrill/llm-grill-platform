@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { theme, toggleTheme } from '$lib/theme';
 
-	let { totalModels, backends = 2 }: { totalModels: number; backends?: number } = $props();
+	// Engines are derived upstream from engines.json + leaderboard rows, so adding a
+	// backend or swapping hardware needs no change here. `gpu` is "" until that engine
+	// has completed runs (we then skip the per-engine hardware stat).
+	let { totalModels, engines = [] }: {
+		totalModels: number;
+		engines?: { label: string; gpu: string }[];
+	} = $props();
 </script>
 
 <header class="hdr">
@@ -18,9 +24,12 @@
 	</div>
 	<div class="hdr-r">
 		<div class="stat"><span class="stat-n">{totalModels}</span><span class="stat-l">models</span></div>
-		<div class="stat"><span class="stat-n">{backends}</span><span class="stat-l">backends</span></div>
-		<div class="stat"><span class="stat-n">H100</span><span class="stat-l">vLLM</span></div>
-		<div class="stat"><span class="stat-n">L40S</span><span class="stat-l">llama.cpp</span></div>
+		<div class="stat"><span class="stat-n">{engines.length}</span><span class="stat-l">backends</span></div>
+		{#each engines as e (e.label)}
+			{#if e.gpu}
+				<div class="stat"><span class="stat-n">{e.gpu}</span><span class="stat-l">{e.label}</span></div>
+			{/if}
+		{/each}
 		<a class="gh-link" title="github" href="https://github.com/llmgrill/llm-grill-platform" aria-label="GitHub">
 			<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"
 				><path

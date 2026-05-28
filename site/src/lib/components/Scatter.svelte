@@ -96,20 +96,24 @@
 	const isActive = (id: string) => hovered === id || pinned.has(id);
 	const isDim = (id: string) => (pinned.size > 0 || hovered != null) && !isActive(id);
 
-	function trailPath(d: ViewRow): string {
-		return perConcurrency(d._row)
-			.map((pc, i) => {
-				const m = flattenPoint(pc) as Record<string, number>;
-				return `${i === 0 ? 'M' : 'L'}${xScale(m[xKey]).toFixed(1)} ${yScale(m[yKey]).toFixed(1)}`;
-			})
-			.join(' ');
-	}
-	function trailPoints(d: ViewRow): Array<[number, number]> {
-		return perConcurrency(d._row).map((pc) => {
-			const m = flattenPoint(pc) as Record<string, number>;
-			return [xScale(m[xKey]), yScale(m[yKey])];
-		});
-	}
+	// Precompute screen-space trail geometry once per row (path + points), instead
+	// of recomputing it for the path, every circle, and the label on each render.
+	const trailData = $derived(
+		trails
+			? data.map((d) => {
+					const pts = perConcurrency(d._row).map(
+						(pc) => {
+							const m = flattenPoint(pc) as Record<string, number>;
+							return [xScale(m[xKey]), yScale(m[yKey])] as [number, number];
+						}
+					);
+					const path = pts
+						.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
+						.join(' ');
+					return { d, pts, path };
+				})
+			: []
+	);
 
 	// Keyboard equivalent of click-to-pin, so the chart is reachable without a mouse.
 	function onKey(e: KeyboardEvent, id: string) {
@@ -156,7 +160,7 @@
 
 	{#if trails}
 		<g>
-			{#each data as d (d.id)}
+			{#each trailData as { d, pts, path } (d.id)}
 				<g
 					style="opacity:{isDim(d.id) ? 0.06 : isActive(d.id) ? 1 : 0.35};transition:opacity 120ms;cursor:pointer"
 					role="button"
@@ -171,13 +175,13 @@
 				>
 					<title>{d.name}</title>
 					<!-- Invisible wide stroke gives the thin curve a usable hit area. -->
-					<path d={trailPath(d)} fill="none" stroke="transparent" stroke-width="12" />
-					<path d={trailPath(d)} fill="none" stroke={colorScale(d.success_rate)} stroke-width={isActive(d.id) ? 1.6 : 0.8} stroke-opacity="0.7" />
-					{#each trailPoints(d) as p, i (i)}
+					<path d={path} fill="none" stroke="transparent" stroke-width="12" />
+					<path d={path} fill="none" stroke={colorScale(d.success_rate)} stroke-width={isActive(d.id) ? 1.6 : 0.8} stroke-opacity="0.7" />
+					{#each pts as p, i (i)}
 						<circle cx={p[0]} cy={p[1]} r={isActive(d.id) ? 2.4 : 1.6} fill={colorScale(d.success_rate)} opacity="0.85" />
 					{/each}
-					{#if isActive(d.id) && trailPoints(d).length}
-						{@const last = trailPoints(d)[trailPoints(d).length - 1]}
+					{#if isActive(d.id) && pts.length}
+						{@const last = pts[pts.length - 1]}
 						<text x={last[0] + 6} y={last[1] + 3} fill="var(--text)" font-size="10.5" font-family="var(--mono)" style="pointer-events:none">{d.name}</text>
 					{/if}
 				</g>
