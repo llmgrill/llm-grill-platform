@@ -14,6 +14,7 @@ from src.infra.terraform import (
     OutOfStockError,
     ScalewayAuthError,
     ScalewayQuotaError,
+    ServerStartError,
     TerraformError,
 )
 from src.models import Engine, GpuType, Node, NodeStatus, Run, RunStatus
@@ -265,7 +266,7 @@ class TestProvisionUnderPermit:
 
     @pytest.mark.parametrize(
         "exc",
-        [OutOfStockError("x"), ScalewayQuotaError("x")],
+        [OutOfStockError("x"), ScalewayQuotaError("x"), ServerStartError("x")],
     )
     async def test_should_requeue_on_capacity_errors(
         self, session_factory, mocker, exc
@@ -292,6 +293,7 @@ class TestProvisionUnderPermit:
         )
         mocker.patch.object(orch.NodeRepository, "set_down_by_run")
         set_failed = mocker.patch.object(orch.RunRepository, "set_failed")
+        destroy = mocker.patch.object(orch, "destroy_node")
 
         # When
         await _provision_under_permit(run.id, GpuType.L40S)
@@ -299,6 +301,12 @@ class TestProvisionUnderPermit:
         # Then
         requeue.assert_awaited_once()
         set_failed.assert_not_called()
+        # A stopped server exists and must be torn down before retrying; out-of-stock
+        # / quota never created anything, so no (costly) destroy for them.
+        if isinstance(exc, ServerStartError):
+            destroy.assert_awaited_once()
+        else:
+            destroy.assert_not_called()
 
     async def test_should_fail_when_capacity_retries_exhausted(
         self, session_factory, mocker

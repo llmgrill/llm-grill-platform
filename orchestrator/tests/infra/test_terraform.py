@@ -11,8 +11,48 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from src.infra.terraform import destroy_node, provision_node
+from src.infra.terraform import (
+    OutOfStockError,
+    ScalewayAuthError,
+    ScalewayQuotaError,
+    ServerStartError,
+    TerraformError,
+    _classify,
+    destroy_node,
+    provision_node,
+)
 from src.models import Engine, GpuType, Run
+
+
+class TestClassify:
+    """_classify maps terraform stderr to typed (retryable vs fatal) errors."""
+
+    def test_should_flag_out_of_stock(self):
+        assert isinstance(_classify("scaleway: out of stock"), OutOfStockError)
+
+    def test_should_flag_quota(self):
+        assert isinstance(_classify("quota has been reached"), ScalewayQuotaError)
+
+    def test_should_flag_auth(self):
+        assert isinstance(_classify("invalid secret key"), ScalewayAuthError)
+
+    @pytest.mark.parametrize("found_state", ["stopped", "error", "locked"])
+    def test_should_flag_server_start_failure_as_retryable(self, found_state):
+        """
+        Given: the provider wait failure "expected state running but found <state>"
+        When:  classified
+        Then:  it's a ServerStartError (retryable), not a bare TerraformError
+        """
+        stderr = (
+            f"Error: scaleway-sdk-go: expected state running but found {found_state}:\n"
+            '  with scaleway_instance_server.gpu,'
+        )
+        err = _classify(stderr)
+        assert isinstance(err, ServerStartError)
+
+    def test_should_fall_back_to_generic_terraform_error(self):
+        err = _classify("some unrecognised failure")
+        assert type(err) is TerraformError
 
 
 def _fake_run(run_id: uuid.UUID, gpu_type: GpuType) -> Run:

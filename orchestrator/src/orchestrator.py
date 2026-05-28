@@ -8,6 +8,7 @@ from src.infra.terraform import (
     OutOfStockError,
     ScalewayAuthError,
     ScalewayQuotaError,
+    ServerStartError,
     TerraformError,
     destroy_node,
     provision_node,
@@ -32,6 +33,19 @@ def _free_provision_slots() -> int:
 async def _fail(run_id, reason: str) -> None:
     await NodeRepository.set_down_by_run(run_id)
     await RunRepository.set_failed(run_id, datetime.now(timezone.utc), reason)
+
+
+async def _safe_destroy(run_id) -> None:
+    """Best-effort teardown of half-provisioned infra; never raises.
+
+    Used when a failure leaves a real Scaleway server behind (e.g. created but
+    stopped), so a retry starts clean and a give-up doesn't leak a GPU + its
+    volume/IP. Destroy failures are logged, not propagated.
+    """
+    try:
+        await destroy_node(run_id)
+    except Exception:
+        logger.exception("cleanup destroy failed for run {}", run_id)
 
 
 async def handle_queued_run(run_id, gpu_type_required) -> None:
@@ -59,10 +73,19 @@ async def _provision_under_permit(run_id, gpu_type_required) -> None:
         return
     try:
         instance_id, public_ip = await provision_node(run)
-    except (OutOfStockError, ScalewayQuotaError) as exc:
-        reason = (
-            "out of stock" if isinstance(exc, OutOfStockError) else "quota exceeded"
-        )
+    except (OutOfStockError, ScalewayQuotaError, ServerStartError) as exc:
+        if isinstance(exc, OutOfStockError):
+            reason = "out of stock"
+        elif isinstance(exc, ScalewayQuotaError):
+            reason = "quota exceeded"
+        else:
+            reason = "server failed to start"
+        # ServerStartError means a server resource was actually created (it's just
+        # stopped) — tear it down so we don't keep a dead GPU + its volume/IP
+        # billing across retries, and don't leak it on give-up. OutOfStock/Quota
+        # never created anything, so skip the (costly) destroy for them.
+        if isinstance(exc, ServerStartError):
+            await _safe_destroy(run_id)
         attempt = await RunRepository.requeue_for_retry(
             run_id, settings.provision_max_attempts
         )

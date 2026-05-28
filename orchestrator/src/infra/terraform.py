@@ -27,6 +27,16 @@ class ScalewayQuotaError(TerraformError):
     """Account quota exceeded for the requested resource."""
 
 
+class ServerStartError(TerraformError):
+    """Scaleway created the instance but it never reached `running`.
+
+    The provider reports "expected state running but found stopped" when the
+    hypervisor can't actually power on the GPU SKU — in practice a capacity
+    (stock) condition surfacing at start time rather than as an explicit
+    out-of-stock API error. Transient and retryable.
+    """
+
+
 _OUT_OF_STOCK_RE = re.compile(r"out of stock", re.IGNORECASE)
 _AUTH_RE = re.compile(
     r"(access key cannot be empty|secret key cannot be empty|"
@@ -34,6 +44,10 @@ _AUTH_RE = re.compile(
     re.IGNORECASE,
 )
 _QUOTA_RE = re.compile(r"(quota|limit).*(exceed|reach)", re.IGNORECASE)
+# Provider wait failure: server created but not running (stopped/error/locked).
+_SERVER_START_RE = re.compile(
+    r"expected state running but found (?:stopped|error|locked)", re.IGNORECASE
+)
 
 
 def _classify(stderr: str) -> TerraformError:
@@ -43,6 +57,8 @@ def _classify(stderr: str) -> TerraformError:
         return ScalewayAuthError(stderr.strip())
     if _QUOTA_RE.search(stderr):
         return ScalewayQuotaError(stderr.strip())
+    if _SERVER_START_RE.search(stderr):
+        return ServerStartError(stderr.strip())
     return TerraformError(stderr.strip())
 
 
