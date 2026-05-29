@@ -8,15 +8,13 @@
 		data,
 		xKey,
 		yKey,
-		sizeKey = 'n_requests',
-		colorKey = 'success_rate',
+		sizeKey = 'params_b',
 		width,
 		height,
 		pinned,
 		hovered,
 		onHover,
 		onPin,
-		pointScale = 1,
 		showGrid = true,
 		label = '',
 		trails = false
@@ -25,14 +23,12 @@
 		xKey: MetricKey;
 		yKey: MetricKey;
 		sizeKey?: MetricKey;
-		colorKey?: MetricKey;
 		width: number;
 		height: number;
 		pinned: Set<string>;
 		hovered: string | null;
 		onHover: (id: string | null) => void;
 		onPin: (id: string) => void;
-		pointScale?: number;
 		showGrid?: boolean;
 		label?: string;
 		trails?: boolean;
@@ -50,16 +46,12 @@
 	// Points feeding the domain (include trail points when trails are on).
 	const allPoints = $derived(
 		(() => {
-			const out = data.map((d) => ({
-				x: val(d, xKey),
-				y: val(d, yKey),
-				s: val(d, sizeKey)
-			}));
+			const out = data.map((d) => ({ x: val(d, xKey), y: val(d, yKey), s: val(d, sizeKey) }));
 			if (trails) {
 				for (const d of data) {
 					for (const pc of perConcurrency(d._row)) {
 						const m = flattenPoint(pc) as Record<string, number>;
-						out.push({ x: m[xKey], y: m[yKey], s: pc.n_requests });
+						out.push({ x: m[xKey], y: m[yKey], s: m[sizeKey] ?? 0 });
 					}
 				}
 			}
@@ -92,7 +84,7 @@
 	// the curve points carry the chart, so fall back to the full point set.
 	const noMarks = $derived(trails ? allPoints.length === 0 : points.length === 0);
 
-	const r = (d: ViewRow) => radius(val(d, sizeKey), sMin, sMax, pointScale);
+	const r = (d: ViewRow) => radius(val(d, sizeKey), sMin, sMax);
 	const isActive = (id: string) => hovered === id || pinned.has(id);
 	const isDim = (id: string) => (pinned.size > 0 || hovered != null) && !isActive(id);
 
@@ -195,7 +187,7 @@
 					cx={xScale(val(d, xKey))}
 					cy={yScale(val(d, yKey))}
 					r={r(d)}
-					fill={colorScale(val(d, colorKey))}
+					fill="var(--accent)"
 					fill-opacity={isActive(d.id) ? 0.95 : 0.72}
 					stroke={isActive(d.id) ? 'var(--text)' : 'var(--point-stroke)'}
 					stroke-width={isActive(d.id) ? 1.5 : 1}

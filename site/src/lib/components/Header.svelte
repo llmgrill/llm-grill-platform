@@ -18,9 +18,6 @@
 			<span class="logo-dot">·</span>
 			<span class="logo-sub">benchmark</span>
 		</div>
-		<nav class="hdr-nav">
-			<span class="hdr-link hdr-link-active">scatter</span>
-		</nav>
 	</div>
 	<div class="hdr-r">
 		<div class="stat"><span class="stat-n">{totalModels}</span><span class="stat-l">models</span></div>

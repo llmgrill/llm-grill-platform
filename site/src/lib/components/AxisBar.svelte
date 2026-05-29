@@ -75,17 +75,20 @@
 	{/if}
 
 	<div class="encoding">
-		<span class="enc-item">
-			<span class="enc-swatch">
-				<span class="enc-circle sm"></span>
-				<span class="enc-circle md"></span>
-				<span class="enc-circle lg"></span>
+		{#if !trails}
+			<span class="enc-item">
+				<span class="enc-swatch">
+					<span class="enc-circle sm"></span>
+					<span class="enc-circle md"></span>
+					<span class="enc-circle lg"></span>
+				</span>
+				<span class="enc-label">size = params</span>
 			</span>
-			<span class="enc-label">size = requests</span>
-		</span>
-		<span class="enc-item">
-			<span class="enc-gradient"></span>
-			<span class="enc-label">color = success</span>
-		</span>
+		{:else}
+			<span class="enc-item">
+				<span class="enc-gradient"></span>
+				<span class="enc-label">color = success</span>
+			</span>
+		{/if}
 	</div>
 </section>

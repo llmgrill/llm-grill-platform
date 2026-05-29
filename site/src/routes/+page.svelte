@@ -75,7 +75,7 @@
 	}
 
 	const filtered = $derived(view.filter(matches));
-	const totalModels = $derived(new Set(models.map((m) => m.model)).size);
+	const totalModels = $derived(new Set(view.map((r) => r.model)).size);
 	const visibleModels = $derived(new Set(filtered.map((r) => r.model)).size);
 
 	// Engine columns are driven by engines.json (label + order from the backend Engine
